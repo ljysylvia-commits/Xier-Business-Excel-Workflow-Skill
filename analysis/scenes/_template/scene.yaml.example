@@ -1,0 +1,60 @@
+# ============================================================
+# scene.yaml —— 分析场景执行契约（脚手架 / 通用示例）
+# 新增一个分析场景时，复制为 analysis/scenes/{your_scene_id}/scene.yaml 并按注释填写。
+# 铁则：不写取数映射细节/计算逻辑/口径——映射与逻辑在 scripts/，口径在 CALIBERS.md/plan.md。
+# ============================================================
+
+scene_id: {{your_scene_id}}              # 全小写下划线，如 monthly_trend / region_compare
+version: "0.9"                           # 共创中用 draft/0.9，用户确认可用后 enabled 并升 1.0
+generated_from: plan.md
+requires: [openpyxl]                     # 按产出形态增减，如 Excel 类可能需要 lxml、libreoffice
+
+trigger:
+  keywords: [{{触发词1}}, {{触发词2}}]     # 语义匹配用；由本场景的业务问题归纳，不与其它场景重叠
+  match_mode: fuzzy                       # exact=仅精确命中 / fuzzy=允许语义近似
+
+inputs:
+  pipelines:                             # 依赖的已注册清洗动线产物；可为空。列表 >1 即跨动线（取各源最晚日期）
+    - { id: {{依赖的pipeline_id}}, tables: [cleaned_{{表}}.csv] }
+  user_files: []                         # 或：不依赖动线，直接用用户提供的表——
+  # user_files:
+  #   - { name: {{文件用途}}, expected_format: "csv|xlsx", expected_columns: [{{必需列}}],
+  #       note: "执行时请用户上传；仅做列完整性核验" }
+  discover: latest                       # pipeline 产物默认取数据截止日期最新；params 可钉住
+
+params:
+  - { name: {{参数名}}, required: false, default: "{{默认值或 auto(...)}}" }   # 如 as_of_date / period
+
+# 标准占位符（当前由 Agent 按 EXECUTION_SOP 解析；未来若接 analysis_runner，也只使用这些占位符）：
+# - {input}: 主输入表路径（来自依赖 pipeline 的 clean CSV，或 user_files 中的主文件）
+# - {output}: 本次 analysis run 输出目录
+# - {run_dir}: 同 {output}
+# - {scene_dir}: 当前 scene 套件目录
+# - {skill_root}: Skill 根目录
+# - {source_pipeline_run}: 依赖 pipeline 的 run 目录；多 pipeline 场景在脚本参数中显式传多个路径
+# - {param:参数名}: params 中同名参数的最终值，如 {param:as_of_date}
+
+execution:
+  steps:
+    - script: scripts/run_{{your_scene_id}}.py
+      args: ["--input", "{input}", "--output-dir", "{output}", "--as-of", "{param:as_of_date}"]
+      # 计算逻辑由脚本冻结，勿在 yaml 复述
+    - script: scripts/validate_{{your_scene_id}}.py
+      rigor: exhaustive
+      args: ["--input", "{input}", "--result-dir", "{output}", "--contract", "{output}/validation_contract.json"]
+      # 独立重算逐格：不依赖主脚本、从数据源零知识重算全部结果、逐格对比（容差按需）、exit 0/1
+      # Dashboard/HTML 类产物还应检查关键数锚点；无法渲染时记录降级原因并做结构替代验收
+
+validation_contract:
+  produces: validation_contract.json      # 校验脚本必须输出；由 output_manager validate 读取后决定 verified/partial/failed
+  schema: docs/VALIDATION_CONTRACT.md
+
+# entrypoint: scripts/run_all.sh         # 可选：一键"生成+校验"入口，分级退出码 0/1/2/3
+
+output:
+  format: {{markdown|excel|html|email|text}}   # 共创时锁定；改形态=场景变更（走版本演进）
+  naming: output/analysis/{scene_id}_{data_date}_{seq}/
+  files: [{{产物文件}}, analysis_info.yaml]
+  logs: ["analysis.log", "analysis.validate.log"]
+
+calibers: CALIBERS.md                    # 聚合方式/对比口径/比例分母/边界处理…在彼处

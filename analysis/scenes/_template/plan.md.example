@@ -1,0 +1,58 @@
+# {{scene_id}} 方案文档（plan.md · 分析场景版 · 填写示例）
+
+> 说明：下面用一个**中性示意需求**（"按月对比两个维度的某指标趋势"，纯属举例，请替换）演示 9 章怎么填。
+
+## 第 1 章 问题定义
+- 想回答什么：{{如：最近 N 个月，维度A 与 维度B 的 某指标 走势与差距}}。
+- 给谁看 / 多久用：{{}}；产出形态（由意图推理，用户确认）：{{markdown 表 / Excel / HTML / 结论}}。
+- 用户样例（若做 Excel）：{{附样例与格式要点}}。
+
+## 第 2 章 输入理解
+- 依赖来源：{{清洗动线 X 的 cleaned_*.csv}} 或 {{用户直接提供的表}}。
+- 需要的列与取值：{{date, dim, metric, value_type, value}}；覆盖范围：{{}}。
+- 相关原则：{{是否已查 docs/EXCEL_AGENT_PRINCIPLES.md / docs/OUTPUT_ACCEPTANCE.md / docs/VALIDATION_CONTRACT.md / docs/VALIDATION_PATTERNS.md}}。
+
+## 第 3 章 映射规则
+- 产出每部分 → 数据源查询：{{按 dim/metric/value_type 过滤取数的规则}}。
+- 标注 Agent 推断项：{{业务词↔数据取值 的推断，待复核}}。
+
+## 第 4 章 输出定义
+- 产物：{{report.md / 看板.xlsx}}；字段/布局：{{}}。
+- 关键数锚点：{{指标 -> Dashboard 单元格 / HTML 文本锚点 / 校验 expected value}}。
+- expected values 来源分级：{{source_recomputed / external_authoritative / user_provided_target / agent_inferred}}。
+- 命名：`output/analysis/{scene_id}_{数据截止日期YYYYMMDD}_{seq}/`。
+
+## 第 5 章 校验方案
+- 独立重算逐格：`validate_{{scene}}.py` 不 import 主脚本、从源数据或 clean CSV 零知识重算、逐格对比（容差 {{}}），exit 0/1。
+- Dashboard/HTML：按关键数锚点检查；无法截图/渲染时记录降级原因并做结构/文本替代验收。
+- validation contract：`validate_{{scene}}.py` 输出 `validation_contract.json`，由 output_manager 决定 generated / verified / partial_verified / validation_failed。
+
+## 第 6 章 执行计划
+- 步骤：`run_{{scene}}.py`（→ 产出）→ `validate_{{scene}}.py`（独立校验）。
+- 依赖 requires：{{}}；工具链预检与降级策略：{{}}；参数：{{as_of_date 缺省=数据最大日期}}。
+
+## 第 7 章 确认清单（注册时抽出生成 CALIBERS.md）
+- [ ] 聚合方式：{{总量/日均/累计/期末}}
+- [ ] 对比口径：{{读现成 / 重算}}
+- [ ] 比例分母：{{}}
+- [ ] 周期定义：{{完整期/部分期/YTD 起止}}
+- [ ] 边界处理：{{缺失/无基准}}
+- [ ] 单位与呈现：{{}}
+- [ ] 结构依赖基线：{{}}
+
+## 第 8 章 执行日志（全程回写）
+| 日期 | 事件 | 内容 | 结果 |
+|---|---|---|---|
+| {{}} | {{}} | {{}} | {{}} |
+
+## 第 9 章 知识沉淀
+
+> 注册阶段整理。案例专属经验留在套件 `LEARNINGS.md`；通用规则缺口才进入 `docs/IMPROVEMENTS.md`，且需用户拍板。
+
+- case_specific_learnings → LEARNINGS.md：{{如某类受众报告布局、口径解释方式等仅本场景相关经验}}
+- generalizable_skill_gaps → IMPROVEMENTS.md 候选：{{如 SOP/schema/output acceptance 缺口}}
+- validation_pattern_updates：{{是否有可复用的 Dashboard/HTML 关键数锚点校验模式}}
+- environment_dependency_updates：{{如需要 browser/render/formula_recalc 能力}}
+- template_or_example_candidates：{{是否建议晋升；晋升前需用户确认}}
+- tooling_opportunities：{{如 scene runner / visual smoke checker}}
+- user_decisions_needed：{{需要用户裁决的本体改动或模板晋升}}

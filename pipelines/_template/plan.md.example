@@ -1,0 +1,59 @@
+# {{pipeline_id}} 方案文档（plan.md · 清洗动线版 · 填写示例）
+
+> 说明：下面用一个**中性示意业务**（"某周期业务报表"，纯属举例，请替换）演示 9 章怎么填。
+> 活文档铁则：没有本文件不开工；交互/执行/校验中的任何问题与修改立即回写对应章节。
+
+## 第 1 章 问题定义
+- 想达成什么：把每期上报的《{{某周期业务报表}}.xlsx》洗成规整长格式，供后续分析复用。
+- 给谁看 / 多久用：数据同学；每月一次（结构不变，按月追加）。
+- 输入：固定结构的 xlsx（多 Sheet）。产出：若干长格式 CSV + 数据字典。
+- 用户样例：{{附样例文件名与要点}}。
+
+## 第 2 章 输入理解
+- Sheet 构成：{{Sheet1=汇总, Sheet2=明细, ...}}；表头在第 {{N}} 行，数据从第 {{M}} 行。
+- 覆盖范围：时间 {{起止}}；维度 {{地区/门店/品类…}}；指标 {{销量/金额/…}}。
+- 脏数据：{{空值以 "-" 表示；部分历史列为占位符；日期有多种格式}}。
+
+## 第 3 章 映射规则
+- 每个源单元格 → 长表一行（列：{{date, dim1, dim2, metric, value_type, value}}）。
+- 特殊处理：{{标签统一命名 / 维度前缀拆分 / 多 Sheet 合并 / 单位换算}}。
+- 标注 Agent 推断项：{{如某列语义系推断，待用户复核}}。
+
+## 第 4 章 输出定义
+- 产物：`cleaned_{{主表}}.csv`（schema: {{...}}）、`data_dictionary.md`。
+- 命名：`output/pipelines/{pipeline_id}_{数据截止日期YYYYMMDD}_{seq}/`。
+
+## 第 5 章 校验方案
+- 中间校验：{{关键位置/合计一致性抽验}}（staged）。
+- 终检：全量逐格回溯（原始单元格↔CSV），**100% 通过为硬门**（exhaustive，exit 0/1）。
+- 校验隔离：终检脚本不 import 清洗主脚本，从源 Excel 与 CSV 独立比对。
+- validation contract：终检脚本输出 `validation_contract.json`，由 output_manager 决定 generated / verified / partial_verified / validation_failed。
+
+## 第 6 章 执行计划
+- 步骤：`clean.py`（→ CSV）→ `validate.py`（中间）→ `verify.py`（终检）。
+- 依赖 requires：{{openpyxl, ...}}；工具链预检与降级策略：{{}}；参数：{{--input/--output}}。
+
+## 第 7 章 确认清单（注册时抽出生成 CALIBERS.md）
+- [ ] 表头/数据起始位置：{{...}}
+- [ ] 空值/占位符处理：{{...}}
+- [ ] 标签统一命名映射：{{...}}
+- [ ] 维度拆分规则：{{...}}
+- [ ] 修正项（原表口径有误时）+ 实现位置：{{...}}
+- [ ] 结构依赖基线：{{Sheet/列/取值}}
+
+## 第 8 章 执行日志（全程回写）
+| 日期 | 事件 | 内容 | 结果 |
+|---|---|---|---|
+| {{}} | {{修改/校验/问题/决策}} | {{}} | {{}} |
+
+## 第 9 章 知识沉淀
+
+> 注册阶段整理。案例专属经验留在套件 `LEARNINGS.md`；通用规则缺口才进入 `docs/IMPROVEMENTS.md`，且需用户拍板。
+
+- case_specific_learnings → LEARNINGS.md：{{如源表隐藏行、标题行误判、特殊空值等仅本动线相关经验}}
+- generalizable_skill_gaps → IMPROVEMENTS.md 候选：{{如 SOP/schema/validation 缺口}}
+- validation_pattern_updates：{{是否有可复用的逐格校验/位置映射校验模式}}
+- environment_dependency_updates：{{如需要 xlsx_read/formula_recalc/render 能力}}
+- template_or_example_candidates：{{是否建议晋升；晋升前需用户确认}}
+- tooling_opportunities：{{如 runner / drift checker}}
+- user_decisions_needed：{{需要用户裁决的本体改动或模板晋升}}

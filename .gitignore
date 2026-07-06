@@ -1,0 +1,27 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and local package caches
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local runtime outputs
+output/
+runs/
+tmp/
+*.log
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Local archives generated for release distribution
+*.zip

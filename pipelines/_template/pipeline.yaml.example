@@ -1,0 +1,76 @@
+# ============================================================
+# pipeline.yaml —— 清洗动线执行契约（脚手架 / 通用示例）
+# 新增一条清洗动线时，复制本文件为 pipelines/{your_pipeline_id}/pipeline.yaml 并按注释填写。
+# 铁则：本文件只放"执行契约"，不写清洗逻辑/字段映射/口径说明——逻辑在 scripts/，口径在 CALIBERS.md/plan.md。
+# 下面用中性占位（{{...}}）+ 两类模式示例，均为示意，请按实际业务替换。
+# ============================================================
+
+pipeline_id: {{your_pipeline_id}}        # 全小写下划线，如 order_daily / store_sales_monthly
+version: "1.0"
+generated_from: plan.md
+requires: [openpyxl]                     # 运行依赖；执行 preflight 逐项核验（如还需 pandas 则加上）
+
+run_lifecycle:
+  cleanup_policy: ask                    # disabled | ask | auto_delete_csv
+  keep_latest: 1                         # 含当前 latest；1=只保留当前 run，旧 run 进入 cleanup 候选
+  keep_days: 14                          # 0=不按天数保护；>0=保护最近 N 天旧 run
+  delete_scope: csv_only                 # csv_only | generated_outputs | full_run
+  protect:
+    pinned: true                         # pinned run 永不自动清理
+    referenced_by_analysis: true         # 被 analysis run 引用的旧 run 默认保护
+    validation_reports: true             # 保留 validation report / contract
+    info_files: true                     # 保留 info.json / pipeline_info.yaml
+  tombstone: cleanup_tombstone.json      # 删除旧 CSV 后写入旧 run 目录的机器可读记录
+
+understand:
+  mode: fixed                            # fixed=表结构固定，靠指纹匹配 | parametric=结构可变，靠 profile 检测+确认
+
+  # —— 当 mode: fixed 时填 fingerprint（删掉 profile_detect）——
+  filename_hint: "{{关键词}}_*.xlsx"      # 文件名先导信号（可选，仍须指纹核验）
+  fingerprint:
+    # 【铁则】指纹以清洗脚本实际读取的 Sheet 名/表头为准生成，不凭空写
+    required_sheets: [{{Sheet名1}}, {{Sheet名2}}]     # 必须存在的 Sheet
+    allow_unknown_sheets: false                      # false=发现新 Sheet 进入 partial drift，需要用户判断
+    header_row: {{表头行号}}                          # 可选：配合 expected_headers 做固定表头检查
+    expected_headers: [{{列1}}, {{列2}}]              # 可选：适用于固定 Excel Sheet 表头
+    data_sheets: [{{承载数据的Sheet名}}]              # 可选：只在这些 Sheet 上检查 expected_headers
+    # CSV 固定结构可改用：
+    # required_columns: [{{列1}}, {{列2}}]
+    # allow_extra_columns: true
+    dynamic_sheets:                                    # 可选：名字不固定、按关键词匹配的 Sheet
+      - { name_contains: [{{关键词A}}, {{关键词B}}] }
+    # 深层指纹（可选，表头级）：某 Sheet 某行的列标签顺序 / 某段 metric 序列——写清楚放在 references 里
+    # 匹配分支见 EXECUTION_SOP 2：全中(非首次)→免确认直行；部分中→列差异人工判；不中→转共创
+
+  # —— 当 mode: parametric 时填 profile_detect（删掉上面的 filename_hint/fingerprint）——
+  # pattern_hint: "{{一句话描述这族表的共同模式}}"
+  # profiles_dir: profiles/               # 已确认 profile 的存储目录
+  # profile_detect:
+  #   script: scripts/profile_detect.py    # 自动检测结构 → 产出 profile 草稿
+  #   produces: [profile.json]
+  #   confirm_prompt: "我检测到 {{结构摘要}}，是否符合预期？"
+
+transform:
+  steps:
+    - script: scripts/clean.py
+      args: ["{{--input 或位置参数}}", "{{--output 或位置参数}}"]   # 与脚本 argparse/位置参数完全一致
+    # 若为链式清洗（多步），后一步用 produces 引用前一步中间产物：
+    # - { script: scripts/step1.py, produces: mid, args: [...] }
+    # - { script: scripts/step2.py, args: ["--input {mid}", ...] }
+
+validation:
+  layers:
+    - { script: scripts/validate.py, rigor: staged,     args: [...] }   # 中间校验（完整性/位置映射，可轻量）
+    - { script: scripts/verify.py,   rigor: exhaustive, args: [...] }   # 终检【硬门】：全量逐格 100%，exit 0/1
+
+validation_contract:
+  produces: validation_contract.json      # 校验脚本必须输出；由 output_manager validate 读取后决定 verified/partial/failed
+  schema: docs/VALIDATION_CONTRACT.md
+
+outputs:                                 # 统一 CSV（长格式优先：一行一条 观测×指标×口径）
+  - { file: cleaned_{{主表}}.csv, schema: "{{列1,列2,...,value}}" }
+  - { file: data_dictionary.md,   role: data_dictionary }   # 数据字典（轻量，按需完善，不求穷尽）
+
+calibers: CALIBERS.md                    # 固化口径指针（清洗修正/拆分/合并/单位统一…在彼处）
+references:
+  - references/{{数据理解文件}}.md         # 指纹/校验点/字段口径等静态依赖（按需）
