@@ -6,7 +6,7 @@
 用法:
   python3 consistency_check.py --skill-root SKILL_DIR [--write-manifest] [--changed SUITE_ID]
 
-检查项（对每个套件 pipelines/*/pipeline.yaml 与 analysis/scenes/*/scene.yaml）:
+检查项（对每个套件 data_acquisition/sources/*/acquisition.yaml、pipelines/*/pipeline.yaml 与 analysis/scenes/*/scene.yaml）:
   C1 必备文件齐全: yaml / plan.md / CALIBERS.md / LEARNINGS.md / scripts 目录
   C2 yaml 引用存在: transform|execution 各 step 脚本、validation 各层脚本、calibers、references、entrypoint
   C3 脚本可编译: scripts/*.py 逐个 py_compile
@@ -16,6 +16,10 @@
   C7 版本影响分析(--changed): 列出 inputs 依赖该动线的全部场景，提醒复核
   C8 validation contract 声明: 套件 yaml 必须声明 validation_contract
   C9 校验隔离静态检查: validate/verify 脚本不得 import 主生成脚本模块
+  D1 data_acquisition 必备文件齐全: acquisition.yaml / plan.md / ACCESS.md / LEARNINGS.md
+  D2 data_acquisition execution refs 必须存在，且不能越过 source 目录
+  D3 data_acquisition credential_policy 与 validation.checks 必须存在
+  D4 data_acquisition prompt/subagent usage 与引用文件一致
 
 行为约定: 只报告差异清单，不硬性拒绝——Agent 据此给对齐建议，决策由用户做。
 退出码: 0=无发现 / 1=有发现（供脚本化使用；不代表禁止继续）。
@@ -73,6 +77,124 @@ def _main_scripts(y):
     return out
 
 
+def _iter_ref_values(execution):
+    refs = []
+    for key in ("instruction_ref", "prompt_ref", "subagent_task_ref"):
+        val = execution.get(key)
+        if val:
+            refs.append((key, val))
+    for val in execution.get("required_refs") or []:
+        refs.append(("required_refs", val))
+    for val in execution.get("ref_read_order") or []:
+        refs.append(("ref_read_order", val))
+    return refs
+
+
+def _ref_inside(base, ref):
+    if os.path.isabs(ref):
+        return False
+    target = os.path.abspath(os.path.join(base, ref))
+    base_abs = os.path.abspath(base)
+    return target == base_abs or target.startswith(base_abs + os.sep)
+
+
+def _compile_source_scripts(sid, sdir):
+    spath = os.path.join(sdir, "scripts")
+    if os.path.isdir(spath):
+        for fn in sorted(os.listdir(spath)):
+            if fn.endswith(".py"):
+                try:
+                    py_compile.compile(os.path.join(spath, fn), doraise=True)
+                except py_compile.PyCompileError as e:
+                    rpt("ERROR", sid, "C3", f"{fn} 编译失败: {str(e).splitlines()[-1]}")
+    return spath
+
+
+def _scan_external_paths(sid, spath):
+    pat = re.compile(r"""['"](/(?:root|home|Users|usr/local|opt)/[^'"]+)['"]""")
+    if os.path.isdir(spath):
+        for fn in sorted(os.listdir(spath)):
+            if fn.endswith((".py", ".sh")):
+                for i, line in enumerate(open(os.path.join(spath, fn), encoding="utf-8", errors="replace"), 1):
+                    m = pat.search(line)
+                    if m:
+                        rpt("ERROR", sid, "C5", f"{fn}:{i} 引用外部绝对路径 {m.group(1)}")
+
+
+def _find_sensitive_key_values(obj, path=""):
+    hits = []
+    sensitive = {"password", "passwd", "cookie", "token", "api_key", "apikey", "secret", "client_secret"}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            key = str(k).lower()
+            p = f"{path}.{k}" if path else str(k)
+            if key in sensitive and v not in (None, "", False):
+                hits.append(p)
+            hits.extend(_find_sensitive_key_values(v, p))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            hits.extend(_find_sensitive_key_values(v, f"{path}[{i}]"))
+    return hits
+
+
+def check_data_source(root, sdir):
+    sid = os.path.basename(sdir)
+    ypath = os.path.join(sdir, "acquisition.yaml")
+    if not os.path.exists(ypath):
+        rpt("ERROR", sid, "D1", "缺少 acquisition.yaml")
+        return None
+    if yaml is None:
+        rpt("ERROR", sid, "C4", "缺少依赖 PyYAML，无法解析 acquisition.yaml: pip install pyyaml")
+        return None
+    try:
+        y = yaml.safe_load(open(ypath, encoding="utf-8")) or {}
+    except yaml.YAMLError as e:
+        rpt("ERROR", sid, "D1", f"acquisition.yaml 解析失败: {e}")
+        return None
+    for f in ("plan.md", "ACCESS.md", "LEARNINGS.md"):
+        if not os.path.exists(os.path.join(sdir, f)):
+            rpt("ERROR", sid, "D1", f"缺少 {f}")
+    execution = y.get("execution") or {}
+    mode = execution.get("mode")
+    if not mode:
+        rpt("ERROR", sid, "D2", "execution.mode 必须存在")
+    for key, ref in _iter_ref_values(execution):
+        if not isinstance(ref, str):
+            rpt("ERROR", sid, "D2", f"{key} 必须是相对文件路径: {ref}")
+            continue
+        if not _ref_inside(sdir, ref):
+            rpt("ERROR", sid, "D2", f"{key} 引用越过 source 目录或使用绝对路径: {ref}")
+            continue
+        if not os.path.exists(os.path.join(sdir, ref)):
+            rpt("ERROR", sid, "D2", f"{key} 引用不存在: {ref}")
+    prompt_ref = execution.get("prompt_ref")
+    prompt_usage = execution.get("prompt_usage")
+    if prompt_ref and prompt_usage not in ("execute_locally", "handoff_to_skill", "handoff_to_subagent"):
+        rpt("ERROR", sid, "D4", "prompt_ref 非空时 prompt_usage 必须是 execute_locally / handoff_to_skill / handoff_to_subagent")
+    if prompt_ref and prompt_ref not in (execution.get("required_refs") or []) + (execution.get("ref_read_order") or []):
+        rpt("ERROR", sid, "D4", f"prompt_ref {prompt_ref} 必须出现在 required_refs 或 ref_read_order")
+    sub_ref = execution.get("subagent_task_ref")
+    sub_usage = execution.get("subagent_usage")
+    if sub_ref and sub_usage not in ("spawn_subagent", "handoff_to_existing_agent"):
+        rpt("ERROR", sid, "D4", "subagent_task_ref 非空时 subagent_usage 必须是 spawn_subagent / handoff_to_existing_agent")
+    if sub_ref and sub_ref not in (execution.get("required_refs") or []) + (execution.get("ref_read_order") or []):
+        rpt("ERROR", sid, "D4", f"subagent_task_ref {sub_ref} 必须出现在 required_refs 或 ref_read_order")
+    policy = execution.get("instruction_policy") or {}
+    if policy.get("must_read_refs_before_execution") is not True:
+        rpt("ERROR", sid, "D4", "instruction_policy.must_read_refs_before_execution 必须为 true")
+    if policy.get("stop_if_ref_missing") is not True:
+        rpt("ERROR", sid, "D4", "instruction_policy.stop_if_ref_missing 必须为 true")
+    if not ((y.get("permission") or {}).get("credential_policy")):
+        rpt("ERROR", sid, "D3", "permission.credential_policy 必须存在")
+    if not ((y.get("validation") or {}).get("checks")):
+        rpt("ERROR", sid, "D3", "validation.checks 必须存在")
+    for hit in _find_sensitive_key_values(y):
+        rpt("ERROR", sid, "D3", f"acquisition.yaml 可能包含敏感明文字段: {hit}")
+    spath = _compile_source_scripts(sid, sdir)
+    _scan_external_paths(sid, spath)
+    return y
+
+
 def check_suite(root, kind, sdir):
     sid = os.path.basename(sdir)
     yname = "pipeline.yaml" if kind == "pipelines" else "scene.yaml"
@@ -110,14 +232,7 @@ def check_suite(root, kind, sdir):
     elif not isinstance(vc, dict) or not vc.get("produces"):
         rpt("ERROR", sid, "C8", "validation_contract 必须声明 produces")
     # C3 py_compile
-    spath = os.path.join(sdir, "scripts")
-    if os.path.isdir(spath):
-        for fn in sorted(os.listdir(spath)):
-            if fn.endswith(".py"):
-                try:
-                    py_compile.compile(os.path.join(spath, fn), doraise=True)
-                except py_compile.PyCompileError as e:
-                    rpt("ERROR", sid, "C3", f"{fn} 编译失败: {str(e).splitlines()[-1]}")
+    spath = _compile_source_scripts(sid, sdir)
     # C4 requires
     for req in y.get("requires") or []:
         if req == "libreoffice":
@@ -128,14 +243,7 @@ def check_suite(root, kind, sdir):
             if r.returncode != 0:
                 rpt("WARN", sid, "C4", f"依赖不可导入: {req}")
     # C5 外部绝对路径
-    pat = re.compile(r"""['"](/(?:root|home|Users|usr/local|opt)/[^'"]+)['"]""")
-    if os.path.isdir(spath):
-        for fn in sorted(os.listdir(spath)):
-            if fn.endswith((".py", ".sh")):
-                for i, line in enumerate(open(os.path.join(spath, fn), encoding="utf-8", errors="replace"), 1):
-                    m = pat.search(line)
-                    if m:
-                        rpt("ERROR", sid, "C5", f"{fn}:{i} 引用外部绝对路径 {m.group(1)}")
+    _scan_external_paths(sid, spath)
     # C9 校验脚本不得 import 主生成脚本
     main_modules = {_script_module(s) for s in _main_scripts(y)}
     for script in _validation_scripts(y):
@@ -172,6 +280,23 @@ def assemble(root, kind, suites):
     return {"pipelines" if kind == "pipelines" else "scenes": entries}
 
 
+def assemble_sources(root, suites):
+    entries = []
+    for sid, y in suites.items():
+        execution = y.get("execution") or {}
+        output = y.get("output") or {}
+        entries.append({
+            "id": y.get("source_id") or sid,
+            "status": y.get("status", "draft"),
+            "version": str(y.get("version", "0.1")),
+            "yaml": f"sources/{sid}/acquisition.yaml",
+            "source_type": y.get("source_type", "unknown"),
+            "execution_mode": execution.get("mode", "unknown"),
+            "raw_format": output.get("raw_format", "unknown"),
+        })
+    return {"sources": entries}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skill-root", required=True)
@@ -180,6 +305,28 @@ def main():
     a = ap.parse_args()
     root = a.skill_root
     all_suites = {}
+    # data_acquisition sources
+    src_base = os.path.join(root, "data_acquisition", "sources")
+    src_suites = {}
+    if os.path.isdir(src_base):
+        for name in sorted(os.listdir(src_base)):
+            sdir = os.path.join(src_base, name)
+            if not os.path.isdir(sdir) or name.startswith("_"):
+                continue
+            y = check_data_source(root, sdir)
+            if y:
+                src_suites[name] = y
+    all_suites["data_acquisition"] = src_suites
+    src_manifest = os.path.join(root, "data_acquisition", "manifest.json")
+    src_new = assemble_sources(root, src_suites)
+    if os.path.isdir(os.path.dirname(src_manifest)):
+        if a.write_manifest:
+            json.dump(src_new, open(src_manifest, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            print(f"manifest 已汇编: {src_manifest}")
+        elif os.path.exists(src_manifest):
+            cur = json.load(open(src_manifest, encoding="utf-8"))
+            if cur != src_new:
+                rpt("WARN", "data_acquisition", "C6", f"{src_manifest} 与 source yaml 汇编结果不一致（可用 --write-manifest 重生成）")
     for kind, base in (("pipelines", "pipelines"), ("analysis", os.path.join("analysis", "scenes"))):
         bdir = os.path.join(root, base)
         suites = {}

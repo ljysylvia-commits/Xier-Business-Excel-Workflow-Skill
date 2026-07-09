@@ -1,0 +1,29 @@
+# PROMPT.md
+
+Use this file only when `execution.prompt_ref: PROMPT.md` and `execution.prompt_usage` is not `none`.
+
+## Target
+
+- Target type: sql_skill / api_skill / browser_skill / external_agent / subagent
+- Target name:
+
+## Task Payload
+
+Acquire the raw data described by `acquisition.yaml` using only the user's approved environment and permissions.
+
+Return:
+
+- raw_output_path
+- requested_filters_or_params
+- acquired_at
+- row_count
+- date_range
+- unverified_scope
+- any execution notes needed for `data_acquisition_log`
+
+## Bounds
+
+- Follow `acquisition.yaml` permission, output, validation, evidence_contract, and handoff rules.
+- Do not save credentials.
+- Do not invent SQL, API connectors, browser scripts, or permissions outside the target capability.
+- If the target capability is missing or access is unclear, STOP and report the gap.

@@ -2,7 +2,7 @@
 
 > 本文只写通用原则，不写任何业务指标、渠道、平台或私有管线细节。
 > 若运行环境已有 spreadsheet / xlsx / document / HTML 生成能力，优先使用成熟能力完成读写和渲染；本 Skill 负责流程、契约、溯源、校验与交付记录。
-> 安装后或首次处理 Excel Dashboard/HTML 前，先按 `docs/ENVIRONMENT_READINESS.md` 做能力检查。
+> 安装后或首次处理表格数据前，先按 `docs/ENVIRONMENT_READINESS.md` 做轻量 readiness gate；公式重算、Office 渲染、Dashboard 截图只作为验收风险记录。
 
 ## 1. 定位
 
@@ -13,8 +13,8 @@
 3. 把业务口径、Agent 推断和假设写入 plan / CALIBERS。
 4. 用独立校验证明结果可信。
 5. 把可复用经验沉淀为候选 template/example，而不是直接写进 Skill 本体。
-6. 先记录工具能力，再决定生成路径；降级路径必须可解释、可校验。
-7. 缺少关键能力时先停下给安装建议，不把本地脚本写文件等同于完整 Excel 验收。
+6. 先确认 `workbench_profile` 与 `table_processing_need`，再决定表格后端策略；降级路径必须可解释、可校验。
+7. 缺少 Excel / xlsx 文件处理能力时先停下给后端建议；不把本地脚本写文件等同于完整 Excel 验收。
 
 ## 2. 读取 Excel 时
 
@@ -56,10 +56,10 @@
 - 本 Skill 仍必须保存输入路径、输出路径、参数、关键口径、校验日志和产物清单。
 - 不要把外部工具的成功退出等同于业务正确；业务正确必须由独立校验证明。
 
-## 7. 工具链预检与降级
+## 7. 轻量 Readiness 与降级
 
-- 开始生成 Excel Dashboard / HTML 前，记录可用能力：spreadsheet/xlsx 工具、openpyxl、LibreOffice、浏览器/截图工具、HTML 静态检查能力。
-- 不同环境的能力来源见 `docs/ENVIRONMENT_READINESS.md`；Codex / Claude Code / Antigravity 都按能力矩阵判断，不按名称硬编码。
+- 开始处理表格数据前，按 `docs/ENVIRONMENT_READINESS.md` 记录 `workbench_profile`、`table_processing_need`、`detected_table_backend`、recommendation 和 `risk_notes.visual_acceptance_need`。
+- 不同环境的表格后端策略见 `docs/ENVIRONMENT_READINESS.md`；执行只以轻量 gate 和 derived outputs 为准，不做完整环境扫描。
 - 首选成熟工具；若不可用，允许使用本地库或脚本降级生成，但必须在日志、`info.json` 和对应人读 info 视图中写明原因。
 - 不能做截图或视觉渲染时，至少做替代验收：Sheet/DOM 结构、关键单元格/文本锚点、图表对象数量、行列尺寸、公式错误字符串、HTML 必要章节。
 - 降级不等于降低业务校验标准；关键数字仍必须独立复算。

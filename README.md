@@ -2,13 +2,13 @@
 
 中文名：Xier 业务 Excel 工作流 Skill
 
-Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市场和销售分析场景的 Excel / CSV 数据工作流 Skill，用来帮助用户把日常从各类系统里下载的 Excel 报表，转成 Agent 更容易理解、校验和复用的数据资产。
+Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市场和销售分析场景的 Excel / CSV 数据工作流 Skill，用来帮助用户把日常从各类系统里取得或下载的表格数据，转成 Agent 更容易理解、校验和复用的数据资产。
 
 它适合处理这类真实工作流：从天猫生意参谋、数据银行、广告后台、CRM、ERP、订单系统、会员系统、线下门店系统或公司内部 BI 下载 Excel，然后需要清洗、合并、规整、分析，最后形成业务复盘、经营看板、对外协同表格、HTML 报告或下一步行动建议。
 
 很多 SaaS 和平台导出的 Excel，本质上是给人看的：合并表头、多层标题、宽表、汇总行、说明行、空白行、百分比文本、千分位、备注 Sheet、隐藏结构、口径写在角落里。人能看懂，Agent 和 AI 却很容易误读。这个 Skill 的核心任务，就是先把这些“人可视”的 Excel 变成“Agent 可理解”的规整 CSV，再基于 CSV 产出业务和运营日常真正需要的分析结果、图表和报告。
 
-换句话说，它不是一个通用 Excel 工具，也不是一个只会总结表格的提示词。它更像一个业务数据工作台的底层工作流：第一次遇到某类表时，与用户共创清洗规则和分析口径；跑通后注册成可复用 pipeline 或 analysis scene；之后同类报表可以稳定复用，并用 validation contract 证明结果边界。
+换句话说，它不是一个通用 Excel 工具，也不是一个只会总结表格的提示词。它更像一个业务数据工作台的底层工作流：第一次遇到某类数据源、某类表或某类分析时，与用户共创数据获取路径、清洗规则和分析口径；跑通后注册成可复用 data_acquisition source、pipeline 或 analysis scene；之后同类任务可以稳定复用，并用 source contract / validation contract 证明结果边界。
 
 ## 为什么需要
 
@@ -33,19 +33,20 @@ Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市
 ## 功能
 
 - 处理业务和运营场景中的 Excel / CSV 报表，包括平台后台、公司系统、SaaS 工具和内部 BI 导出数据
+- 当用户没有上传文件时，先通过 data_acquisition source 沉淀合法、可复现、可验证的数据获取路径
 - 将适合人看的 Excel 清洗成适合 Agent 和 AI 理解的规整 CSV，优先保留 source sheet、source row、source cell / range 等溯源信息
 - 支持宽转长、合并表头拆解、说明行 / 汇总行排除、日期标准化、百分比 / 千分位 / 货币 / 空值统一等清洗规则
 - 支持基于清洗 CSV 做业务分析，例如销售趋势、渠道表现、商品表现、人群转化、区域对比、活动复盘、异常识别、机会点提取
 - 支持生成业务或运营协同所需的多形态产物：clean CSV、Excel Dashboard、HTML 报告、Markdown 分析、关键数校验报告
-- 首次遇到新类型报表时走共创流程，用 `plan.md` 对齐用户意图、字段含义、指标口径、输出形态和验收标准
-- 将跑通的清洗动线注册到 `pipelines/`，将跑通的分析场景注册到 `analysis/scenes/`，后续一句话复用
+- 首次遇到新数据源、新类型报表或新分析场景时走共创流程，用 `plan.md` 对齐用户意图、数据来源、字段含义、指标口径、输出形态和验收标准
+- 将跑通的数据获取路径注册到 `data_acquisition/`，将跑通的清洗动线注册到 `pipelines/`，将跑通的分析场景注册到 `analysis/scenes/`，后续一句话复用
 - 用 validation contract 控制交付状态，明确区分 `generated`、`verified`、`partial_verified`、`validation_failed`
 - 用 `pipeline_runner.py` 串联已注册清洗动线的匹配、preflight、drift check、生成、校验和 usage 更新
 - 用 `cleanup_manager.py` 对同 pipeline 的旧 run 生成 cleanup plan，并在用户确认或显式策略允许后只删除计划内旧 CSV
 - 用 `consistency_check.py` 检查注册套件的文件、yaml、脚本、依赖、manifest 和校验隔离
 - 将业务专属经验留在具体 pipeline / scene 的 `LEARNINGS.md`，将通用规则缺口登记到 `docs/IMPROVEMENTS.md`
 
-不支持把平台私有 API、登录态、cookie、验证码、付费墙或反爬工作流内置进 Skill。本 Skill 处理的是用户已经合法导出的本地 Excel / CSV 文件。它也不内置任何行业指标模板；具体口径由用户和 Agent 在共创时确认，并沉淀到对应套件。
+不支持把平台私有 API、登录态、cookie、验证码、付费墙或反爬工作流内置进 Skill。本 Skill 可以记录用户已有权限下的数据获取 pipeline，但 SQL 编写、API connector、浏览器自动化、OAuth、secret management 都交给用户环境里的专业 Skill、MCP、官方插件、企业批准能力或外部工作台。它也不内置任何行业指标模板；具体口径由用户和 Agent 在共创时确认，并沉淀到对应套件。
 
 如果后续接入专门的 HTML 分析 Skill，本 Skill 更适合作为上游数据与证据层：提供 clean CSV、CALIBERS、数据范围、关键数锚点和 validation summary；HTML 分析 Skill 可在此基础上负责报告叙事、版式、可视化体验和行动建议表达。
 
@@ -60,7 +61,7 @@ Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市
 
 不适合的场景：
 
-- 直接连接平台 API 或爬取平台数据
+- 要求本 Skill 直接连接平台 API 或爬取平台数据
 - 处理没有授权的第三方数据
 - 只需要一次性人工改表、没有复用价值的极小任务
 - 缺少任何源数据，只要求模型凭空给经营结论
@@ -92,6 +93,7 @@ Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市
 ├── SKILL.md                    # Agent Skill 入口：路由、硬规则、按需读取导航
 ├── docs/                       # SOP、环境检查、Excel 原则、验收、验证契约、自迭代登记
 ├── tools/                      # runner、cleanup、output state、drift、consistency、recalc 等确定性工具
+├── data_acquisition/           # 数据获取 source 注册中心；manifest 初始为空
 ├── pipelines/                  # 清洗动线注册中心；manifest 初始为空
 ├── analysis/                   # 分析场景注册中心；manifest 初始为空
 └── references/                 # 数据字典等轻量共享参考
@@ -101,11 +103,12 @@ Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市
 
 | 文件 | 用途 |
 |---|---|
-| `SKILL.md` | Skill 触发入口、三种模式、路由表、硬规则和按需读取导航 |
+| `SKILL.md` | Skill 触发入口、四种模式、路由表、硬规则和按需读取导航 |
+| `docs/DATA_ACQUISITION_SOP.md` | 数据获取模式：source 匹配、source_preflight、引用文件读取、raw data 校验和 handoff |
 | `docs/COCREATION_SOP.md` | 首次共创流程：先建 `plan.md`，再生成脚本和校验闭环 |
 | `docs/REGISTRATION_SOP.md` | 把已跑通的 workspace 产物规范化迁入 Skill 的注册 checklist |
 | `docs/EXECUTION_SOP.md` | 已注册清洗动线、分析场景和跨动线分析的执行流程 |
-| `docs/ENVIRONMENT_READINESS.md` | Excel / HTML / 注册任务前的环境能力矩阵和降级边界 |
+| `docs/ENVIRONMENT_READINESS.md` | 收窄的安装 / 首次运行 gate：workbench_profile + table_processing_need + derived outputs |
 | `docs/EXCEL_AGENT_PRINCIPLES.md` | Agent 处理 Excel / CSV 的通用原则 |
 | `docs/OUTPUT_ACCEPTANCE.md` | CSV、Excel Dashboard、HTML 报告和旧 run cleanup 的验收标准 |
 | `docs/VALIDATION_CONTRACT.md` | 机器可读验证状态契约 |
@@ -116,6 +119,7 @@ Xier Business Excel Workflow Skill 是一个面向业务、运营、电商、市
 | `tools/output_manager.py` | 输出目录、run 状态、validation 摘要和 usage 管理 |
 | `tools/drift_check.py` | 已注册 pipeline 的结构漂移检查 |
 | `tools/consistency_check.py` | 注册质检和 manifest 汇编 |
+| `data_acquisition/sources/_template/` | 新数据获取 source 脚手架 |
 | `pipelines/_template/` | 新清洗动线脚手架 |
 | `analysis/scenes/_template/` | 新分析场景脚手架 |
 
@@ -126,34 +130,40 @@ cd xier-business-excel-workflow-skill
 python3 tools/consistency_check.py --skill-root .
 ```
 
-如果环境中还没有 `PyYAML`，注册和 runner 相关工具需要先安装：
+如果环境中还没有 `PyYAML` / `openpyxl`，注册、runner 和基础 xlsx 处理相关能力需要先安装：
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-安装后或首次处理 Excel Dashboard / HTML / 注册任务前，先按 `docs/ENVIRONMENT_READINESS.md` 检查能力矩阵：
+安装后或首次处理表格数据前，先按 `docs/ENVIRONMENT_READINESS.md` 做轻量 gate：
 
 ```text
-csv_read_write
-xlsx_read
-xlsx_write
-formula_recalc
-dashboard_render_or_screenshot
-html_render_or_dom_check
-browser_available
-libreoffice_or_office_available
-yaml_support
-python_packages
+workbench_profile
+table_processing_need
+detected_table_backend
+recommendation
+risk_notes.visual_acceptance_need
 ```
 
-缺关键能力时，先补能力或降级到可验证子集，不要承诺完整 Excel Dashboard 或最终可信结论。
+SQL / API / browser download / external workbench / secret management 不进入 readiness gate，只在 data_acquisition source_preflight 中表达缺口。缺 Excel / xlsx 文件处理能力时，Workbuddy / 外部 Agent / 企业 Agent 默认建议 `xlsx.skill`；Codex / OpenAI runtime 默认使用 `spreadsheets` skill。
 
 ## 配置
 
-Xier Business Excel Workflow 初始不预置任何业务 pipeline 或 analysis scene。生产使用前，通常先完成一次共创并注册。
+Xier Business Excel Workflow 初始不预置任何业务 data_acquisition source、pipeline 或 analysis scene。生产使用前，通常先完成一次共创并注册。
 
-1. 新清洗动线配置：
+1. 新数据获取 source 配置：
+
+```text
+data_acquisition/sources/{source_id}/acquisition.yaml
+data_acquisition/sources/{source_id}/plan.md
+data_acquisition/sources/{source_id}/ACCESS.md
+data_acquisition/sources/{source_id}/RUNBOOK.md 或 PROMPT.md 或 SUBAGENT_TASK.md
+data_acquisition/sources/{source_id}/LEARNINGS.md
+data_acquisition/sources/{source_id}/scripts/（可选）
+```
+
+2. 新清洗动线配置：
 
 ```text
 pipelines/{pipeline_id}/pipeline.yaml
@@ -163,7 +173,7 @@ pipelines/{pipeline_id}/LEARNINGS.md
 pipelines/{pipeline_id}/scripts/
 ```
 
-2. 新分析场景配置：
+3. 新分析场景配置：
 
 ```text
 analysis/scenes/{scene_id}/scene.yaml
@@ -173,7 +183,7 @@ analysis/scenes/{scene_id}/LEARNINGS.md
 analysis/scenes/{scene_id}/scripts/
 ```
 
-3. 清洗动线 lifecycle 配置示例：
+4. 清洗动线 lifecycle 配置示例：
 
 ```yaml
 run_lifecycle:
@@ -201,25 +211,30 @@ auto_delete_csv
 
 ## 运行链路
 
-稳定表格工作流使用 Step 0-6：
+稳定表格工作流使用 Step 0-7：
 
 ```text
-Step 0  路由：判断清洗 / 分析 / 共创
-Step 1  共创或匹配：读取 manifest，确认 pipeline / scene
-Step 2  preflight：环境能力、依赖、输入结构、drift 检查
-Step 3  生成：运行清洗或分析脚本，写入 output run
-Step 4  validation：独立校验脚本输出 validation contract
-Step 5  状态写回：output_manager 写 run status / usage
-Step 6  交付：按 contract 说明证据、边界和 cleanup 状态
+Step 0  路由：判断数据获取 / 清洗 / 分析 / 共创
+Step 1  数据获取：没有 raw data 时匹配或共创 data_acquisition source
+Step 2  共创或匹配：读取 manifest，确认 source / pipeline / scene
+Step 3  preflight：source_preflight、轻量 readiness、依赖、输入结构、drift 检查
+Step 4  生成：运行清洗或分析脚本，写入 output run
+Step 5  validation：独立校验脚本输出 validation contract
+Step 6  状态写回：output_manager 写 run status / usage
+Step 7  交付：按 contract 说明证据、边界和 cleanup 状态
 ```
 
 Skill Graph：
 
 ```mermaid
 flowchart TD
-  U["Business / ops Excel export"] --> R["Route: clean / analyze / cocreate"]
+  U["Business request or Excel export"] --> R["Route: data_acquisition / clean / analyze / cocreate"]
+  R --> DA["data_acquisition/manifest.json"]
   R --> M1["pipelines/manifest.json"]
   R --> M2["analysis/manifest.json"]
+  DA --> SRC["Registered data source"]
+  SRC --> RAW["Validated raw data"]
+  RAW --> M1
   M1 --> P["Registered pipeline"]
   M2 --> S["Registered scene"]
   R --> C["Cocreation SOP"]
@@ -227,6 +242,7 @@ flowchart TD
   PLAN --> REG["Registration SOP"]
   REG --> P
   REG --> S
+  REG --> SRC
   P --> PR["pipeline_runner.py"]
   PR --> DR["drift_check.py"]
   DR --> GEN["cleaning scripts"]

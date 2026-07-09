@@ -5,14 +5,15 @@
 
 ## 1. 通用约定（所有执行必须遵守）
 
-1. **就地执行**：以绝对路径调用套件内 `scripts/`；输入/输出路径一律参数传入；禁止复制脚本到工作目录。
-2. **输出目录**：用 `tools/output_manager.py` 创建，命名 `{套件id}_{数据截止日期YYYYMMDD}_{3位序号}`；数据截止日期在产物生成后从 CSV max(date) 回填（先用占位目录，后重命名）。`finalize` 只代表生成完成，状态为 `generated`。
-3. **断点续跑**：每步完成立即通过 `tools/output_manager.py step` 把 `{step名, status}` 写入本次运行的 `info.json` `steps` 区块，并同步生成人读 `pipeline_info.yaml` / `analysis_info.yaml`。开始执行前先检查输出区是否有同输入的未完成 run（`info.json.steps` 未全 done）→ 有则报告"上次执行到第 N 步（XX）"并问用户"续跑还是重跑？"。
-4. **工具链预检**：按 `docs/ENVIRONMENT_READINESS.md` 记录能力矩阵。涉及 Excel Dashboard / HTML / 图表时，先确认 spreadsheet/xlsx、openpyxl、LibreOffice/Office、浏览器/渲染能力等是否可用；涉及已注册 yaml 套件解析、manifest 汇编或 consistency_check 时，确认 PyYAML 可用。关键能力缺失时先建议用户安装适配的官方插件/Skill/工作台能力；若降级，必须把降级原因、替代检查方式和最高可达 validation 状态写入 `info.json`、对应人读 info 视图与日志。
-5. **校验隔离**：独立校验脚本不得 import 主生成脚本；必须从源数据或 clean CSV 重新取数复算关键结果。校验脚本必须输出 `validation_contract.json`，再用 `output_manager validate --contract ...` 回写状态。
-6. **统计**：执行成功后 usage.json 对应条目 run_count +1、last_run 更新（output_manager 完成）；同一 run 重复 validate 不得重复计数。
-7. **旧 run 清理**：同 pipeline 新 run 通过后，旧 run 只能由 `tools/cleanup_manager.py` 按 `run_lifecycle.cleanup_policy` 生成 plan / 执行清理；默认只列候选并请用户确认，不手工删除。
-8. **异常总则**：任何校验不过 → 输出校验报告路径 + 摘要，**不交付产物**；脚本报错 → 报错原文，不猜测原因空转。
+1. **数据可达性先检**：没有本地 raw data / clean CSV 时，不得直接进入清洗或分析。先按 `docs/DATA_ACQUISITION_SOP.md` 匹配或共创 data_acquisition source，完成 source_preflight、raw data 校验和 evidence log 后再 handoff。
+2. **就地执行**：以绝对路径调用套件内 `scripts/`；输入/输出路径一律参数传入；禁止复制脚本到工作目录。
+3. **输出目录**：用 `tools/output_manager.py` 创建，命名 `{套件id}_{数据截止日期YYYYMMDD}_{3位序号}`；数据截止日期在产物生成后从 CSV max(date) 回填（先用占位目录，后重命名）。`finalize` 只代表生成完成，状态为 `generated`。
+4. **断点续跑**：每步完成立即通过 `tools/output_manager.py step` 把 `{step名, status}` 写入本次运行的 `info.json` `steps` 区块，并同步生成人读 `pipeline_info.yaml` / `analysis_info.yaml`。开始执行前先检查输出区是否有同输入的未完成 run（`info.json.steps` 未全 done）→ 有则报告"上次执行到第 N 步（XX）"并问用户"续跑还是重跑？"。
+5. **轻量 readiness**：按 `docs/ENVIRONMENT_READINESS.md` 只确认 `workbench_profile` 与 `table_processing_need`，记录 `detected_table_backend`、recommendation 和 `risk_notes.visual_acceptance_need`。SQL / API / browser download / external workbench / secret management 不进入 readiness gate，只能在 data_acquisition source_preflight 中表达缺口和降级。
+6. **校验隔离**：独立校验脚本不得 import 主生成脚本；必须从源数据或 clean CSV 重新取数复算关键结果。校验脚本必须输出 `validation_contract.json`，再用 `output_manager validate --contract ...` 回写状态。
+7. **统计**：执行成功后 usage.json 对应条目 run_count +1、last_run 更新（output_manager 完成）；同一 run 重复 validate 不得重复计数。
+8. **旧 run 清理**：同 pipeline 新 run 通过后，旧 run 只能由 `tools/cleanup_manager.py` 按 `run_lifecycle.cleanup_policy` 生成 plan / 执行清理；默认只列候选并请用户确认，不手工删除。
+9. **异常总则**：任何校验不过 → 输出校验报告路径 + 摘要，**不交付产物**；脚本报错 → 报错原文，不猜测原因空转。
 
 ## 2. 清洗线 checklist
 
@@ -40,10 +41,11 @@
        └─ 不命中 → 跑 understand.profile_detect.script → 用 confirm_prompt 向用户展示 profile 草稿
                     → 确认后存入 profiles/（命名），或用户调整后再存
 
-□ 3. preflight：先按 docs/ENVIRONMENT_READINESS.md 做能力检查；requires 依赖逐项核验（缺 → 报缺失项与安装提示，停）；
+□ 3. preflight：先确认 raw data 已在本地且通过 data_acquisition source contract 或用户上传文件基本检查；
+     再按 docs/ENVIRONMENT_READINESS.md 确认 workbench_profile + table_processing_need；requires 依赖逐项核验（缺 → 报缺失项与安装提示，停）；
      输入文件可读；输出可写；运行 `tools/drift_check.py --suite-dir {pipeline_dir} --input {file}`，
      pass 才可免确认继续，partial 必须点名差异请用户判断，fail 转局部重共创；
-     记录本次可用工具链、缺失能力、安装建议与可能的降级策略
+     记录本次表格后端、derived recommendation、视觉验收风险和可能的降级策略
 
 □ 4. 建输出目录（output_manager，先占位命名）
 
@@ -82,6 +84,10 @@
 ## 3. 分析线 checklist
 
 ```
+□ 0. 数据依赖检查
+     若用户没有提供 raw data / clean data，且本分析依赖的数据尚未在本 Session 输出区可达，
+     先转 `docs/DATA_ACQUISITION_SOP.md` 匹配或共创 data_acquisition source。
+
 □ 1. 场景定位（读 analysis/manifest.json，只看 status=enabled）
      ├─ 精确命中 keywords → 直接执行
      ├─ 模糊但可意会 → 执行 + 告知"我用了 {场景名}"
@@ -93,13 +99,14 @@
 □ 3. 定位数据（按 inputs 分两类）
      a. pipelines 依赖：扫描本 Session 输出区各来源动线最新 pipeline_info.yaml
         （按 data_date 最新；并列取 run_time 最新；params 可用 --as-of 钉住日期）
-        → 某依赖动线无任何产物 → 告知"本分析依赖 {X} 动线的清洗数据，请先上传对应报表完成清洗"
-          → 清洗完成后自动接回本分析请求
+        → 某依赖动线无任何产物 → 若有可用 data_acquisition source，先取 raw data 并完成清洗；
+          否则告知"本分析依赖 {X} 动线的清洗数据，请先上传对应报表或共创数据获取 source"
+          → 取数/清洗完成后自动接回本分析请求
      b. user_files 依赖：请用户提供文件 → 按 expected_columns 做列完整性核验后使用
 
-□ 4. preflight：先按 docs/ENVIRONMENT_READINESS.md 做能力检查；requires 依赖逐项核验（缺→报缺失项，停）；CSV 存在/列完整（缺列→停）；
+□ 4. preflight：先按 docs/ENVIRONMENT_READINESS.md 确认 workbench_profile + table_processing_need；requires 依赖逐项核验（缺→报缺失项，停）；CSV 存在/列完整（缺列→停）；
      params 合法；输出可写；数据覆盖 report_date（不足→警告继续）；
-     输出为 Excel/HTML 时记录可用工具链；若无法截图/渲染，改用结构检查+关键数锚点+错误字符串扫描，并记录降级原因；
+     输出为 Excel/HTML 时记录 risk_notes.visual_acceptance_need；若无法截图/渲染，改用结构检查+关键数锚点+错误字符串扫描，并记录降级原因；
      若由外部/未来 HTML 分析 Skill 生成报告，本 Skill 仍需向其提供 clean CSV、CALIBERS、数据范围、关键数锚点和 validation summary，
      并在本次 run 记录 handoff 输入与返回产物；
      结构漂移检测：当前数据结构 vs CALIBERS 第四区块基线

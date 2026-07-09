@@ -1,0 +1,68 @@
+# {{source_id}} 方案文档（plan.md · 数据获取版 · 填写示例）
+
+## 第 1 章 问题定义
+
+- 想获取什么数据：
+- 给谁 / 哪个后续分析使用：
+- 数据源位置：
+- 产出 raw format：
+
+## 第 2 章 Source Contract
+
+- source_type：
+- source_handle：
+- 需要的权限：
+- 输出字段：
+- 日期范围 / freshness：
+
+## 第 3 章 执行模式
+
+- execution.mode：
+- instruction_ref / prompt_ref / subagent_task_ref：
+- prompt_usage / subagent_usage：
+- approved backend 或手动导出方式：
+
+## 第 4 章 输出定义
+
+- raw_filename_pattern：
+- expected_columns：
+- raw_output_path 规则：
+- data_acquisition_log 字段：
+
+## 第 5 章 校验方案
+
+- required_columns：
+- row_count_min：
+- date_range：
+- sample_total_recalc：
+- 失败时处理：
+
+## 第 6 章 Handoff
+
+- next_mode：
+- cleaning_pipeline_hint：
+- 如果没有清洗 pipeline，是否进入共创：
+
+## 第 7 章 确认清单
+
+- [ ] 用户确认拥有访问 / 导出权限
+- [ ] 凭据只在用户运行时环境使用，不写入 Skill / repo
+- [ ] execution.mode 已确认
+- [ ] raw format 与 expected columns 已确认
+- [ ] handoff 路径已确认
+
+## 第 8 章 执行日志
+
+| 日期 | 事件 | 内容 | 结果 |
+|---|---|---|---|
+|  |  |  |  |
+
+## 第 9 章 知识沉淀
+
+- case_specific_learnings：
+- generalizable_skill_gaps：
+- validation_pattern_updates：
+- environment_dependency_updates：
+- template_or_example_candidates：
+- tooling_opportunities：
+- user_decisions_needed：

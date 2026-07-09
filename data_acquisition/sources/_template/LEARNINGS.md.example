@@ -1,0 +1,16 @@
+# LEARNINGS.md
+
+## Source-Specific Notes
+
+- Known export quirks:
+- Field drift:
+- Pagination / row limits:
+- Filter issues:
+- Date range issues:
+- Manual export caveats:
+
+## Do Not Generalize Without Review
+
+- Case-specific assumptions:
+- User-specific system names:
+- Organization-specific permission notes:

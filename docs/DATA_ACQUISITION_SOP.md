@@ -1,0 +1,125 @@
+# DATA_ACQUISITION_SOP —— 数据获取模式标准流程
+
+> 目标：当用户没有上传数据，或数据还在数仓、BI 看板、网站后台、官方 API、外部工作台时，先沉淀可复用、可验证、最少权限的数据获取 pipeline，再把 raw data 交给清洗 / 分析。
+
+## 1. 边界
+
+- 本 Skill 只沉淀 data_acquisition pipeline，不生产 SQL / API / browser download / secret management 能力。
+- SQL 编写、schema discovery、浏览器点击下载、API connector、OAuth、token refresh、验证码、登录态处理都交给用户环境里的专业 Skill、MCP、官方插件、企业批准能力或外部工作台。
+- 本 Skill 不保存账号、密码、cookie、token 到 Skill、repo、plan、yaml、Markdown 或脚本。
+- 当前环境缺 SQL / API / browser / external workbench / secret management 能力时，只提示缺口和影响，不推荐安装项。
+- 只有 Excel / xlsx 文件处理能力缺失时，才按 `docs/ENVIRONMENT_READINESS.md` 建议 `xlsx.skill` 或 `spreadsheets` skill。
+
+## 2. 触发条件
+
+进入数据获取模式：
+
+- 用户没有上传文件，但提出业务分析、报表、复盘或看板需求。
+- 用户说明数据在数仓、BI 看板、网页后台、官方 API、CRM、ERP、广告后台或外部工作台。
+- 分析场景依赖的数据尚未在本地 raw data / clean CSV 中可用。
+- 用户明确要新增或复用某条取数路径。
+
+不进入数据获取模式：
+
+- 用户已经上传可用 raw data，且 source contract / expected columns 校验通过。
+- 用户只要求基于已清洗 CSV 做分析。
+- 用户要求写 SQL、实现 API connector、实现浏览器自动化。这些应转交专业能力，本 Skill 只记录 pipeline 和验收。
+
+## 3. 路由
+
+1. 读 `data_acquisition/manifest.json`，只看 `status=enabled` 的 source。
+2. 用用户描述的系统、看板、页面、API、文件名、时间窗口和输出格式匹配 `source_id`。
+3. 命中单个 source：读取该 source 的 `acquisition.yaml`，进入 source preflight。
+4. 命中多个 source：列出差异，请用户选择。
+5. 未命中：进入共创，先共创 data_acquisition pipeline，不直接共创清洗 pipeline。
+6. raw data 取得并通过 source contract 校验后，再进入清洗 / 分析路由。
+
+## 4. Source Preflight
+
+`source_preflight` 是单个 source 的执行前确认，不是安装 readiness gate，也不是通用环境扫描。
+
+必须确认：
+
+- 用户是否声明拥有读取、导出或 API 访问权限。
+- 本次取数是否需要 SQL / API / browser / external workbench / manual export。
+- 用户当前环境是否已有可交接的批准后端，或是否需要手动导出。
+- raw output 格式、文件命名、字段和日期范围能否验收。
+- 缺后端时的降级路径和最高 validation 状态。
+
+不能做：
+
+- 扫描整台机器寻找 SQL / API / browser / secret 工具。
+- 建议安装 SQL / API / browser / secret 插件。
+- 临时生成绕过权限或安全策略的下载脚本。
+- 因为 source preflight 失败而扩展 `docs/ENVIRONMENT_READINESS.md` 的 gate 检测范围。
+
+## 5. 必读文件
+
+命中 source 后，Agent 必须按顺序读取：
+
+1. `data_acquisition/sources/{source_id}/acquisition.yaml`
+2. `execution.required_refs`
+3. `execution.ref_read_order`
+4. `execution.instruction_ref`
+5. `execution.prompt_ref`
+6. `execution.subagent_task_ref`
+
+规则：
+
+- 所有引用必须是当前 source 目录内的相对文件。
+- 绝对路径、仓库外路径和外部 URL 不能作为执行说明文件读取。
+- 外部 URL 只能作为 `source_handle`、dashboard handle 或 API documentation handle 记录。
+- 引用文件缺失、越界或不符合 `execution.mode` 要求时，必须 STOP，进入共创补齐模板。
+- 当 `prompt_ref` 存在且 `prompt_usage` 不是 `none` 时，Agent 必须读取提示词文件，并把它作为本次任务级执行载荷执行或交接。
+- 引用 Markdown 不能覆盖 `acquisition.yaml` 中的权限、安全、输出、校验、evidence 和 handoff 规则。
+
+## 6. execution.mode
+
+| mode | 必要文件 | 执行方式 |
+|---|---|---|
+| `manual_export` | `ACCESS.md`、`RUNBOOK.md` | 用户按步骤导出，Agent 只指导和校验 |
+| `external_workbench_handoff` | `ACCESS.md`、`RUNBOOK.md` | Workbuddy / Qoderwork / 企业 Agent 执行打开、下载、截图或导出 |
+| `prompt_handoff` | `ACCESS.md`、`PROMPT.md` | 把提示词交给专业 SQL / API / browser Skill 或外部 Agent |
+| `subagent_handoff` | `ACCESS.md`、`SUBAGENT_TASK.md` | 分派子 Agent 执行取数任务 |
+| `sql_backend_handoff` | `ACCESS.md`、`RUNBOOK.md` 或 `PROMPT.md` | 使用已有只读 SQL / DB MCP / 企业数据平台 |
+| `api_backend_handoff` | `ACCESS.md`、`RUNBOOK.md` 或 `PROMPT.md` | 使用已有官方 API connector |
+| `browser_backend_handoff` | `ACCESS.md`、`RUNBOOK.md` 或 `PROMPT.md` | 使用已有浏览器自动化或下载后端 |
+
+## 7. Raw Data 验收
+
+取得 raw data 后必须校验：
+
+- 文件存在、可读、格式符合 `output.raw_format`。
+- 文件名符合 `output.raw_filename_pattern`。
+- required columns / expected columns 存在。
+- 行数、日期范围、时间新鲜度符合 `validation.checks`。
+- 可复算的关键数通过 sample total / row count / date range 检查。
+- `evidence_contract.required` 字段均已记录。
+
+校验失败时，不能进入清洗 / 分析；应说明失败项并让用户补导出、修权限或回到共创更新 source contract。
+
+## 8. data_acquisition log
+
+每次执行或手动导出都要记录：
+
+- source_id、source_type、execution.mode。
+- source_handle / dashboard handle / API connector handle / query_handle。
+- backend_class、backend instance 或 manual operator。
+- requested filters / params / date range。
+- acquired_at。
+- raw_output_path、raw_output_hash、row_count、date_range。
+- validation status。
+- unverified_scope。
+- handoff next_mode。
+
+日志可写入 workspace run 目录；注册模板只规定字段，不保存真实敏感值。
+
+## 9. Handoff
+
+只有 raw data 通过 source contract 校验后，才能进入：
+
+- 清洗模式：按 `handoff.next_mode=cleaning` 和 `cleaning_pipeline_hint` 路由。
+- 分析模式：仅当 raw data 已经是规整表且满足分析 scene 的 expected columns。
+- 共创模式：source 命中但没有清洗 pipeline，先共创清洗 pipeline。
+
+如果数据获取失败、权限不足、后端缺失或 raw data 未通过校验，必须停止，不得假装继续分析。

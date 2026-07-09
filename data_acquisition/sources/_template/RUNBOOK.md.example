@@ -1,0 +1,27 @@
+# RUNBOOK.md
+
+## Purpose
+
+Describe the approved steps for acquiring raw data for this source. Keep credentials out of this file.
+
+## Inputs
+
+- Source handle:
+- Date range:
+- Filters:
+- Expected raw format:
+- Expected filename pattern:
+
+## Steps
+
+1. Open the approved source handle in the user-approved environment.
+2. Apply the confirmed filters and date range.
+3. Export the table as CSV or XLSX.
+4. Save the raw file to the workspace run directory.
+5. Record source handle, filters, operator/backend, acquired_at, output path, hash, row count, and unverified scope.
+
+## STOP Rules
+
+- Stop if login, captcha, secret storage, or permission escalation is required.
+- Stop if export controls are unavailable.
+- Stop if the downloaded file does not match the expected format or columns.

@@ -1,0 +1,112 @@
+source_id: example_source_id
+version: 0.1.0
+status: draft
+source_type: bi_dashboard_export
+owner_confirmed_access: false
+
+source_handle:
+  kind: dashboard_url_or_system_name
+  value: pending_user_confirmation
+
+backend_binding:
+  backend_class: browser_automation_backend
+  acceptable_sources:
+    - official_browser_skill
+    - approved_chrome_or_playwright_backend
+    - external_workbench
+    - manual_operator
+  current_backend: pending_user_environment_check
+  not_pipeline_responsibility:
+    write_sql: false
+    implement_browser_automation: false
+    implement_api_connector: false
+    store_credentials: false
+
+execution:
+  mode: external_workbench_handoff
+  instruction_ref: RUNBOOK.md
+  instruction_usage: execute_as_runbook
+  prompt_ref: null
+  prompt_usage: none
+  prompt_target:
+    # allowed: sql_skill, api_skill, browser_skill, external_agent, subagent
+    target_type: null
+    target_name: null
+  subagent_task_ref: null
+  subagent_usage: none
+  required_refs:
+    - ACCESS.md
+    - RUNBOOK.md
+  ref_read_order:
+    - ACCESS.md
+    - RUNBOOK.md
+  instruction_policy:
+    must_read_refs_before_execution: true
+    stop_if_ref_missing: true
+    acquisition_yaml_has_higher_priority: true
+    referenced_markdown_is_task_payload: true
+  ref_policy:
+    allowed_scope: same_source_directory_only
+    absolute_paths_allowed: false
+    external_urls_are_source_handles_not_instruction_files: true
+
+permission:
+  required:
+    - source_view
+    - export_csv_or_xlsx
+  credential_policy: user_runtime_only
+  forbidden:
+    - store_password_in_skill
+    - store_cookie_in_repo
+    - store_token_in_repo
+    - bypass_access_control
+
+source_preflight:
+  required_backend_capabilities:
+    - browser_available
+    - browser_download
+    - spreadsheet_read
+  fallback:
+    mode: manual_export
+    max_validation_status: partial_verified
+
+retrieval:
+  mode: backend_handoff
+  steps:
+    - prepare_backend_request
+    - handoff_to_approved_backend
+    - collect_raw_output
+    - record_data_acquisition_log
+
+output:
+  raw_format: csv
+  raw_filename_pattern: source_export_*.csv
+  expected_columns:
+    - date
+    - metric
+    - value
+  freshness_rule: weekly
+
+validation:
+  checks:
+    - required_columns
+    - row_count_min
+    - date_range
+    - sample_total_recalc
+
+evidence_contract:
+  required:
+    - source_handle
+    - backend_class
+    - backend_instance_or_manual_operator
+    - requested_filters_or_params
+    - acquired_at
+    - raw_output_path
+    - raw_output_hash
+    - row_count
+    - date_range
+    - unverified_scope
+
+handoff:
+  next_mode: cleaning
+  cleaning_pipeline_hint: pending_cleaning_pipeline
