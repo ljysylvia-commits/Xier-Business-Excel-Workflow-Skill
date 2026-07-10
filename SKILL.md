@@ -1,17 +1,9 @@
 ---
 name: xier-business-data-workflow-skill
 description: >
-  Use this skill for recurring business data workflows / 业务数据工作流 that need reusable,
-  verifiable data acquisition (数据获取/取数), data cleansing (数据清洗), data analysis (数据分析),
-  and delivery contracts. It helps an Agent acquire or receive permitted business data such as
-  Excel, CSV, JSON/JSONL, web tables, BI exports, SQL/API/browser/workbench downloads; clean and
-  validate raw data into traceable assets; answer business questions with reports, dashboards,
-  analysis outputs, or collaboration artifacts; and register reusable data_acquisition sources,
-  data_cleansing suites, or data_analysis suites. Trigger when the user asks for operations,
-  ecommerce, marketing, sales, KPI review, campaign review, channel/product/customer/region
-  comparison, anomaly detection, 报表, 看板, 复盘, 决策支持, source contracts, validation contracts,
-  manifests, reusable data pipelines, or first-time co-creation of a new data source, table
-  structure, cleansing flow, or analysis scenario.
+  用于可复用的业务数据工作流：当用户需要在已有权限下取得或接收业务数据，清洗 Excel、CSV、JSON、网页表、BI 导出等 raw data，
+  或基于数据生成业务分析、报表、看板、复盘与决策支持时使用。Skill 通过 data_acquisition source、data_cleansing suite、
+  data_analysis suite 的共创、注册、复用和 validation contract，沉淀可追溯、可校验、可组合的数据处理链路。
 ---
 
 # Xier Business Data Workflow Skill
