@@ -19,7 +19,7 @@ DEFAULT_POLICY = {
     "delete_scope": "csv_only",
     "protect": {
         "pinned": True,
-        "referenced_by_analysis": True,
+        "referenced_by_data_analysis": True,
         "validation_reports": True,
         "info_files": True,
     },
@@ -87,16 +87,16 @@ def discover_runs(output_root, kind, suite_id):
     return runs
 
 
-def discover_analysis_references(output_root, run):
-    workspace_root = workspace_root_from_base(kind_base(output_root, "pipelines"), "pipelines")
-    analysis_base = workspace_root / "analysis"
-    if not analysis_base.exists():
+def discover_data_analysis_references(output_root, run):
+    workspace_root = workspace_root_from_base(kind_base(output_root, "data_cleansing"), "data_cleansing")
+    data_analysis_base = workspace_root / "data_analysis"
+    if not data_analysis_base.exists():
         return []
     run_path = str(run["path"])
     run_name = run["path"].name
     run_id = run["info"].get("run_id")
     refs = []
-    for info_path in analysis_base.glob("*/info.json"):
+    for info_path in data_analysis_base.glob("*/info.json"):
         text = info_path.read_text(encoding="utf-8", errors="replace")
         if run_path in text or run_name in text or (run_id and run_id in text):
             refs.append(str(info_path.parent))
@@ -133,7 +133,7 @@ def candidate_files(run, delete_scope):
         names = [item.get("file") for item in info.get("outputs") or [] if item.get("file")]
         files = [run_dir / name for name in sorted(set(names))]
     elif delete_scope == "full_run":
-        protected = {INFO_JSON, "pipeline_info.yaml", "analysis_info.yaml", "validation_contract.json"}
+        protected = {INFO_JSON, "data_cleansing_info.yaml", "data_analysis_info.yaml", "validation_contract.json"}
         files = [path for path in run_dir.iterdir() if path.is_file() and path.name not in protected]
     else:
         raise SystemExit(f"unsupported delete_scope: {delete_scope}")
@@ -162,11 +162,11 @@ def build_plan(args):
     for run in old_runs:
         info = run["info"]
         reasons = []
-        refs = discover_analysis_references(args.output_root, run)
+        refs = discover_data_analysis_references(args.output_root, run)
         if info.get("pinned") and policy["protect"].get("pinned", True):
             reasons.append("pinned")
-        if refs and policy["protect"].get("referenced_by_analysis", True):
-            reasons.append("referenced_by_analysis")
+        if refs and policy["protect"].get("referenced_by_data_analysis", True):
+            reasons.append("referenced_by_data_analysis")
         if str(run["path"]) in protected_keep:
             reasons.append("keep_latest")
         if is_recent(run, policy.get("keep_days")):
@@ -179,7 +179,7 @@ def build_plan(args):
                 "run_id": info.get("run_id"),
                 "status": info.get("status"),
                 "reasons": reasons,
-                "analysis_references": refs,
+                "data_analysis_references": refs,
             })
             continue
         files = candidate_files(run, policy["delete_scope"])
@@ -251,7 +251,7 @@ def main():
 
     p = sub.add_parser("plan")
     p.add_argument("--output-root", required=True)
-    p.add_argument("--kind", choices=["pipelines"], default="pipelines")
+    p.add_argument("--kind", choices=["data_cleansing"], default="data_cleansing")
     p.add_argument("--suite-id", required=True)
     p.add_argument("--latest-run", required=True)
     p.add_argument("--policy-json")

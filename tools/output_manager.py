@@ -2,7 +2,7 @@
 """output_manager —— 输出目录/运行元数据/统计 管理（确定性工具，无第三方依赖）
 
 子命令:
-  create   --root OUT_ROOT --kind pipelines|analysis --id SUITE_ID
+  create   --root OUT_ROOT --kind data_cleansing|data_analysis --id SUITE_ID
            创建占位运行目录 {id}_PENDING_{时间戳}/，初始化 info；打印目录绝对路径
   step     --dir RUN_DIR --step NAME --status done|failed|running
            写回步骤状态（断点续跑依据）
@@ -10,18 +10,32 @@
            [--validation-contract CONTRACT_JSON] [--usage USAGE_JSON] [--extra k=v ...]
            从 CSV 的 date 列取 max 得数据截止日期（或用 --data-date 指定），
            计算同日期序号，目录重命名为 {id}_{YYYYMMDD}_{seq}，
-           写 info.json（机读）+ pipeline_info.yaml/analysis_info.yaml（人读）；默认状态为 generated，不代表验证通过
+           写 info.json（机读）+ data_cleansing_info.yaml/data_analysis_info.yaml（人读）；默认状态为 generated，不代表验证通过
   validate --dir RUN_DIR --contract CONTRACT_JSON [--usage USAGE_JSON]
            读取 validation contract，写入 validation 摘要，并将状态置为
            verified / partial_verified / validation_failed
   status   --dir RUN_DIR    打印 steps 进度（供中断重入时报告）
 
-info 数据以 info.json 为机读事实源，pipeline_info.yaml/analysis_info.yaml 为同内容的人读视图（finalize/step 时同步生成）。
+info 数据以 info.json 为机读事实源，data_cleansing_info.yaml/data_analysis_info.yaml 为同内容的人读视图（finalize/step 时同步生成）。
 """
 import argparse, csv, json, os, re, shutil, sys
 from datetime import datetime
 
 INFO_JSON = "info.json"
+INFO_YAML_BY_KIND = {
+    "data_cleansing": "data_cleansing_info.yaml",
+    "data_analysis": "data_analysis_info.yaml",
+}
+ALLOWED_COVERAGE_SCOPES = {
+    "full_cell",
+    "full_metric",
+    "key_metrics",
+    "structural_plus_key_metrics",
+    "sample_only",
+    "structural_only",
+    "partial",
+}
+WEAK_COVERAGE_SCOPES = {"structural_only", "sample_only", "partial"}
 
 
 def _load(d):
@@ -85,7 +99,10 @@ def _emit_yaml(d, info):
             L.append("  assumptions:")
             for item in v["assumptions"]:
                 L.append(f"    - {item}")
-    name = "pipeline_info.yaml" if info.get("kind") == "pipelines" else "analysis_info.yaml"
+    kind = info.get("kind")
+    if kind not in INFO_YAML_BY_KIND:
+        raise SystemExit(f"unsupported output kind for info yaml: {kind}")
+    name = INFO_YAML_BY_KIND[kind]
     open(os.path.join(d, name), "w", encoding="utf-8").write("\n".join(L) + "\n")
 
 
@@ -171,6 +188,8 @@ def _contract_status(c):
     user_provided_target = _as_int(prov.get("user_provided_target"), default=0)
 
     reasons = []
+    if coverage and coverage not in ALLOWED_COVERAGE_SCOPES:
+        return "validation_failed", [f"coverage_scope not allowed: {coverage}"]
     if assumptions:
         reasons.append("validation depends on assumptions")
     if unverified:
@@ -179,7 +198,7 @@ def _contract_status(c):
         reasons.append("agent-inferred oracle cannot prove correctness")
     if not coverage:
         reasons.append("coverage_scope missing")
-    if coverage in {"structural_only", "sample_only", "partial"}:
+    if coverage in WEAK_COVERAGE_SCOPES:
         reasons.append(f"coverage_scope={coverage}")
     if source_recomputed + external_authoritative <= 0:
         if user_provided_target > 0:
@@ -306,7 +325,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("create"); c.add_argument("--root", required=True)
-    c.add_argument("--kind", choices=["pipelines", "analysis"], required=True)
+    c.add_argument("--kind", choices=["data_cleansing", "data_analysis"], required=True)
     c.add_argument("--id", required=True); c.set_defaults(f=cmd_create)
     s = sub.add_parser("step"); s.add_argument("--dir", required=True)
     s.add_argument("--step", required=True)

@@ -9,21 +9,19 @@ Use this file only when `execution.prompt_ref: PROMPT.md` and `execution.prompt_
 
 ## Task Payload
 
-Acquire the raw data described by `acquisition.yaml` using only the user's approved environment and permissions.
+Acquire the raw data described by `acquisition.yaml` using only the user's approved environment, access, runtime support, and source contract.
 
 Return:
 
-- raw_output_path
+- raw_outputs with path, sha256, format, structure_type, row_or_record_count, date_range, validation_status, and unverified_scope
 - requested_filters_or_params
 - acquired_at
-- row_count
-- date_range
-- unverified_scope
-- any execution notes needed for `data_acquisition_log`
+- any execution notes needed for `data_acquisition_log.json`
 
 ## Bounds
 
-- Follow `acquisition.yaml` permission, output, validation, evidence_contract, and handoff rules.
-- Do not save credentials.
-- Do not invent SQL, API connectors, browser scripts, or permissions outside the target capability.
-- If the target capability is missing or access is unclear, STOP and report the gap.
+- Follow `acquisition.yaml` access, runtime_requirements, output, validation, data_acquisition_log, and handoff rules.
+- Do not save credentials or real `.env` values in the Skill, source directory, prompt, logs, or returned payload.
+- Do not invent SQL, API connectors, browser scripts, permissions, or secret handling outside the target capability.
+- If access, runtime backend, external env, or secret support is missing, pause and report the missing support. After the user provides support, rerun `source_preflight`.
+- Stop if credential storage inside the Skill, login bypass, captcha bypass, permission escalation, or policy bypass is required.

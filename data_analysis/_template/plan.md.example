@@ -1,4 +1,4 @@
-# {{scene_id}} 方案文档（plan.md · 分析场景版 · 填写示例）
+# {{analysis_id}} 方案文档（plan.md · 数据分析套件版 · 填写示例）
 
 > 说明：下面用一个**中性示意需求**（"按月对比两个维度的某指标趋势"，纯属举例，请替换）演示 9 章怎么填。
 
@@ -8,7 +8,7 @@
 - 用户样例（若做 Excel）：{{附样例与格式要点}}。
 
 ## 第 2 章 输入理解
-- 依赖来源：{{清洗动线 X 的 cleaned_*.csv}} 或 {{用户直接提供的表}}。
+- 依赖来源：{{data_cleansing 套件 X 的 cleaned_*.csv}} 或 {{用户直接提供的表}}。
 - 需要的列与取值：{{date, dim, metric, value_type, value}}；覆盖范围：{{}}。
 - 相关原则：{{是否已查 docs/EXCEL_AGENT_PRINCIPLES.md / docs/OUTPUT_ACCEPTANCE.md / docs/VALIDATION_CONTRACT.md / docs/VALIDATION_PATTERNS.md}}。
 
@@ -20,15 +20,15 @@
 - 产物：{{report.md / 看板.xlsx}}；字段/布局：{{}}。
 - 关键数锚点：{{指标 -> Dashboard 单元格 / HTML 文本锚点 / 校验 expected value}}。
 - expected values 来源分级：{{source_recomputed / external_authoritative / user_provided_target / agent_inferred}}。
-- 命名：`output/analysis/{scene_id}_{数据截止日期YYYYMMDD}_{seq}/`。
+- 命名：`output/data_analysis/{analysis_id}_{数据截止日期YYYYMMDD}_{seq}/`。
 
 ## 第 5 章 校验方案
-- 独立重算逐格：`validate_{{scene}}.py` 不 import 主脚本、从源数据或 clean CSV 零知识重算、逐格对比（容差 {{}}），exit 0/1。
+- 独立重算逐格：`validate_{{analysis_id}}.py` 不 import 主脚本、从源数据或 clean CSV 零知识重算、逐格对比（容差 {{}}），exit 0/1。
 - Dashboard/HTML：按关键数锚点检查；无法截图/渲染时记录降级原因并做结构/文本替代验收。
-- validation contract：`validate_{{scene}}.py` 输出 `validation_contract.json`，由 output_manager 决定 generated / verified / partial_verified / validation_failed。
+- validation contract：`validate_{{analysis_id}}.py` 输出 `validation_contract.json`，由 output_manager 决定 generated / verified / partial_verified / validation_failed。
 
 ## 第 6 章 执行计划
-- 步骤：`run_{{scene}}.py`（→ 产出）→ `validate_{{scene}}.py`（独立校验）。
+- 步骤：`run_{{analysis_id}}.py`（→ 产出）→ `validate_{{analysis_id}}.py`（独立校验）。
 - 依赖 requires：{{}}；工具链预检与降级策略：{{}}；参数：{{as_of_date 缺省=数据最大日期}}。
 
 ## 第 7 章 确认清单（注册时抽出生成 CALIBERS.md）
@@ -49,10 +49,10 @@
 
 > 注册阶段整理。案例专属经验留在套件 `LEARNINGS.md`；通用规则缺口才进入 `docs/IMPROVEMENTS.md`，且需用户拍板。
 
-- case_specific_learnings → LEARNINGS.md：{{如某类受众报告布局、口径解释方式等仅本场景相关经验}}
+- case_specific_learnings → LEARNINGS.md：{{如某类受众报告布局、口径解释方式等仅本数据分析套件相关经验}}
 - generalizable_skill_gaps → IMPROVEMENTS.md 候选：{{如 SOP/schema/output acceptance 缺口}}
 - validation_pattern_updates：{{是否有可复用的 Dashboard/HTML 关键数锚点校验模式}}
 - environment_dependency_updates：{{如需要 browser/render/formula_recalc 能力}}
 - template_or_example_candidates：{{是否建议晋升；晋升前需用户确认}}
-- tooling_opportunities：{{如 scene runner / visual smoke checker}}
+- tooling_opportunities：{{如 data_analysis runner / visual smoke checker}}
 - user_decisions_needed：{{需要用户裁决的本体改动或模板晋升}}

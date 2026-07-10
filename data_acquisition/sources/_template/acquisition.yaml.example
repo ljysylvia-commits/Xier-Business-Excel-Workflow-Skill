@@ -2,25 +2,24 @@ source_id: example_source_id
 version: 0.1.0
 status: draft
 source_type: bi_dashboard_export
-owner_confirmed_access: false
 
 source_handle:
   kind: dashboard_url_or_system_name
   value: pending_user_confirmation
 
-backend_binding:
-  backend_class: browser_automation_backend
-  acceptable_sources:
-    - official_browser_skill
-    - approved_chrome_or_playwright_backend
-    - external_workbench
-    - manual_operator
-  current_backend: pending_user_environment_check
-  not_pipeline_responsibility:
-    write_sql: false
-    implement_browser_automation: false
-    implement_api_connector: false
-    store_credentials: false
+execution_backend:
+  capability_class: browser_download
+  selected_handler: pending_user_runtime
+  missing_capability_policy: remind_only_no_install_recommendation
+
+scope_boundary:
+  not_data_acquisition_responsibility:
+    - write_sql
+    - implement_api_connector
+    - implement_browser_automation
+    - clean_or_transform_data
+    - analyze_business_metrics
+    - store_credentials
 
 execution:
   mode: external_workbench_handoff
@@ -35,10 +34,8 @@ execution:
   subagent_task_ref: null
   subagent_usage: none
   required_refs:
-    - ACCESS.md
     - RUNBOOK.md
   ref_read_order:
-    - ACCESS.md
     - RUNBOOK.md
   instruction_policy:
     must_read_refs_before_execution: true
@@ -50,63 +47,139 @@ execution:
     absolute_paths_allowed: false
     external_urls_are_source_handles_not_instruction_files: true
 
-permission:
-  required:
-    - source_view
-    - export_csv_or_xlsx
-  credential_policy: user_runtime_only
-  forbidden:
-    - store_password_in_skill
-    - store_cookie_in_repo
-    - store_token_in_repo
-    - bypass_access_control
+access:
+  user_authorization_required: true
+  account_context: user_runtime_only
+  credential_policy: no_credentials_in_skill_or_repo
+  runtime_secret_policy:
+    real_env_file_in_skill_repo: forbidden
+    env_example_in_skill_repo: allowed_without_values
+    secret_values_in_yaml_or_markdown: forbidden
+    allowed_secret_references:
+      - env_var_name
+      - enterprise_secret_manager_ref
+      - runtime_session_ref
+  required_confirmations:
+    - user_can_access_source
+    - user_can_export_requested_raw_data
+    - filters_and_date_range_confirmed
+  stop_if:
+    - access_not_confirmed
+    - credential_storage_required
+    - policy_bypass_required
+    - login_or_captcha_bypass_required
 
 source_preflight:
-  required_backend_capabilities:
-    - browser_available
-    - browser_download
-    - spreadsheet_read
+  required_runtime_context:
+    - user_confirmed_access
+    - approved_execution_handler_or_manual_export
+    - workspace_raw_file_access
   fallback:
     mode: manual_export
     max_validation_status: partial_verified
+
+runtime_requirements:
+  required_support:
+    - user_confirmed_access
+    - approved_execution_handler_or_manual_export
+  external_env:
+    required: false
+    ref: DATA_ACQUISITION_ENV_FILE
+    ref_type: env_var_points_to_external_env_file
+    location_policy: outside_skill_repo
+    value_storage: forbidden
+  secrets:
+    - name: BI_EXPORT_TOKEN
+      required: false
+      source: env_var
+      value_storage: forbidden
+  reproducibility:
+    user_confirmed_reusable_runtime_conditions: false
+    record_only_references_not_values: true
 
 retrieval:
   mode: backend_handoff
   steps:
     - prepare_backend_request
     - handoff_to_approved_backend
-    - collect_raw_output
-    - record_data_acquisition_log
+    - collect_raw_outputs
+    - record_data_acquisition_log_json
 
 output:
-  raw_format: csv
-  raw_filename_pattern: source_export_*.csv
-  expected_columns:
-    - date
-    - metric
-    - value
-  freshness_rule: weekly
+  raw_outputs:
+    - role: primary
+      format: csv
+      path_pattern: source_export_*.csv
+      structure_type: tabular
+      validation_profile: required_columns
+      expected_columns:
+        - date
+        - metric
+        - value
+      freshness_rule: weekly
+  allowed_formats:
+    - csv
+    - xlsx
+    - json
+    - jsonl
+    - html_table
+    - zip
+    - other
 
 validation:
   checks:
-    - required_columns
-    - row_count_min
+    - file_exists
+    - format_readable
+    - required_columns_or_fields
+    - row_or_record_count_min
     - date_range
     - sample_total_recalc
+  json_direct_to_analysis_rule:
+    allowed_only_when:
+      - structure_type_is_json_records
+      - required_fields_pass
+      - handoff_analysis_ready_true
 
-evidence_contract:
-  required:
+data_acquisition_log:
+  filename: data_acquisition_log.json
+  location: workspace_run_directory
+  markdown_summary_optional: true
+  required_fields:
+    - source_id
+    - source_type
+    - execution.mode
     - source_handle
-    - backend_class
-    - backend_instance_or_manual_operator
+    - execution_backend.capability_class
+    - selected_handler_or_manual_operator
     - requested_filters_or_params
     - acquired_at
-    - raw_output_path
-    - raw_output_hash
-    - row_count
-    - date_range
+    - raw_outputs
+    - validation_status
     - unverified_scope
+    - handoff.target_stage
+    - handoff.target_id
+    - handoff.analysis_ready
 
 handoff:
-  next_mode: cleaning
-  cleaning_pipeline_hint: pending_cleaning_pipeline
+  target_stage: data_cleansing
+  target_id: null
+  requires_cocreation: true
+  analysis_ready: false
+  raw_outputs:
+    - role: primary
+      path: null
+      sha256: null
+      format: csv
+      structure_type: tabular
+      validation_profile: required_columns
+      expected_columns:
+        - date
+        - metric
+        - value
+      date_range: null
+      row_or_record_count: null
+      source_validation_status: pending
+      unverified_scope: []
+  data_cleansing_hint:
+    - pending_data_cleansing_suite
+  data_analysis_hint: []

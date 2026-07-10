@@ -1,6 +1,6 @@
 # REGISTRATION_SOP —— 注册改造 checklist（阶段二：注册即改造）
 
-> 用途：把 workspace 里**已跑通**的 data_acquisition source、清洗 pipeline 或分析 scene，一次性规范化改造并迁入 Skill 目录。
+> 用途：把 workspace 里**已跑通**的 data_acquisition source、data_cleansing 套件或 data_analysis 套件，一次性规范化改造并迁入 Skill 目录。
 > 同时可作为**存量迁移** checklist（迁移=一次注册）。
 > 前置条件：□ 端到端跑通或 data_acquisition raw data 验收通过 □ 校验闭环通过或 source contract 验收通过 □ plan.md 存在且第 7 章确认清单全打勾
 
@@ -12,23 +12,26 @@
 
 □ 2. 生成 yaml（最小执行契约）：
      - data_acquisition source 字段：source_id、version、status、source_type、source_handle、
-       backend_binding、execution、permission、source_preflight、retrieval、output、validation、
-       evidence_contract、handoff
-     - pipeline / scene 字段：pipeline_id/scene_id、version、generated_from、requires、
+       execution_backend、execution、access、runtime_requirements、source_preflight、retrieval、
+       output.raw_outputs[]、validation、data_acquisition_log、handoff.raw_outputs[]
+     - data_cleansing / data_analysis 字段：cleansing_id/analysis_id、version、generated_from、requires、
        understand(fixed→fingerprint+filename_hint / parametric→pattern_hint+profiles_dir+profile_detect)、
-       transform.steps(含 produces 中间产物) 或 execution.steps、validation.layers(rigor 标注，
-       终检必须 exhaustive)、trigger(场景)、inputs(pipelines+user_files)、params、output、
+       transform.steps 或 execution.steps、validation.layers(rigor 标注，
+       终检必须 exhaustive)、trigger、inputs(data_cleansing+user_files)、params、output、
        calibers 指针、validation_contract、run_lifecycle(清洗动线可选)、entrypoint(可选)
+     - data_cleansing transform.steps 只允许 runner 支持的 placeholder：`{input}`、`{output}`、
+       `{run_dir}`、`{suite_dir}`、`{skill_root}`；不得注册 `{mid}` 等未实现 placeholder。
      - data_acquisition 的 `execution.prompt_ref` / `instruction_ref` / `subagent_task_ref`
        只能指向当前 source 目录内的 Markdown 文件；引用文件缺失时不得注册
      - 【铁则】指纹/hint 一律从脚本实际读取的 Sheet 名/结构生成，不从旧文档抄
      - 【铁则】yaml 不写映射细节/计算逻辑/口径说明（映射与逻辑在脚本，口径在 CALIBERS/plan）
 
-□ 3. 抽 CALIBERS.md / ACCESS.md：
-     - data_acquisition source：从 plan 第 2~7 章生成 `ACCESS.md`，并按 execution.mode 生成
-       `RUNBOOK.md`、`PROMPT.md` 或 `SUBAGENT_TASK.md`；不需要 CALIBERS.md
-     - pipeline / scene：从 plan 第 7 章生成 CALIBERS.md（参考 `pipelines/_template/CALIBERS.md.example`
-     或 `analysis/scenes/_template/CALIBERS.md.example` 的四区块），
+□ 3. 抽 CALIBERS.md / 执行载荷：
+     - data_acquisition source：从 plan 第 2~7 章生成 `acquisition.yaml` 的 access / runtime_requirements，
+       并按 execution.mode 生成 `RUNBOOK.md`、`PROMPT.md` 或 `SUBAGENT_TASK.md`；不需要 CALIBERS.md
+       不保存真实 `.env`、密码、token、cookie、API key 或登录态
+     - data_cleansing / data_analysis：从 plan 第 7 章生成 CALIBERS.md（参考 `data_cleansing/_template/CALIBERS.md.example`
+     或 `data_analysis/_template/CALIBERS.md.example` 的四区块），
      补第四区"结构依赖基线"（列出依赖的 Sheet/section/sub_channel/metric）；
      清洗类须注明每条修正规则的**实现位置**（脚本内哪个常量/标志）
 
@@ -39,7 +42,7 @@
      - data_acquisition scripts/ 仅允许存放合法、无密钥、可审计的 source 专属脚本；没有脚本也可注册
 
 □ 5. 跑 tools/consistency_check.py：
-     检查项 = acquisition.yaml / pipeline.yaml / scene.yaml 引用存在且一致 + 套件必备文件齐全 +
+     检查项 = acquisition.yaml / cleansing.yaml / analysis.yaml 引用存在且一致 + 套件必备文件齐全 +
               脚本 py_compile 可编译 + requires 依赖可 import + 外部绝对路径扫描 +
               validation_contract 声明 + data_acquisition execution refs 同目录且存在 + 校验脚本不得 import 主生成脚本
      发现不一致 → 工具只报差异清单；你结合上下文给对齐建议；**决策由用户做**；确认后修正并回写 plan
@@ -48,11 +51,12 @@
      data_acquisition source：
      - source_preflight 通过或明确降级；
      - 引用文件按 `execution.required_refs` / `ref_read_order` 可读取；
-     - raw data 或手动导出样本通过 expected_columns、row_count、date_range 等检查；
-     - data_acquisition log 字段齐全；
-     - 缺权限 / 缺列 / 日期不足的负向测试必须失败或 STOP。
+     - raw outputs 或手动导出样本通过格式、结构类型、expected columns / fields、row/record count、date_range 等检查；
+     - `data_acquisition_log.json` 字段齐全；
+     - 缺权限 / 缺后端 / 缺安全运行支持时必须暂停并反馈补齐项；补齐后重新 source_preflight。
+     - 缺列 / 日期不足 / 需要凭据落盘 / 需要绕过安全策略的负向测试必须失败或 STOP。
      最小状态机命令序列：
-     - 已注册清洗动线优先用 `tools/pipeline_runner.py run --skill-root {skill} --input {file} --output-root {output_root}`；
+     - 已注册清洗动线优先用 `tools/data_cleansing_runner.py run --skill-root {skill} --input {file} --output-root {output_root}`；
      - 若不适用 runner，则运行生成脚本，产出 CSV / Dashboard / HTML 等文件；
      - 运行独立 validator，产出 validation_contract.json；
      - 运行 `tools/output_manager.py validate --dir {run_dir} --contract validation_contract.json`；
@@ -66,7 +70,7 @@
      （新套件默认 status=draft；用户确认可用后改 enabled）
 
 □ 8. 版本演进：若与已注册套件同名/同类 → 问用户
-     "这是原{source/动线/场景}的升级（覆盖，版本号+1，旧版记入历史）还是全新（并存）？"
+     "这是原{source / data_cleansing 套件 / data_analysis 套件}的升级（覆盖，版本号+1，旧版记入历史）还是全新（并存）？"
 
 □ 9. template / example 晋升判断：
      - 若本套件对开源用户有可复用价值，先写入候选清单，不直接进入正式模板
@@ -75,7 +79,7 @@
 
 □ 10. 注册复盘 gate（Skill 自迭代只在此发生）：
       前置：端到端跑通 + 正向 validation 通过或明确 partial 边界 + 负向测试能失败 + 套件文件已迁入。
-      由共创/注册 Agent 总结本次 source / pipeline / scene 的注册复盘，至少包含：
+      由共创/注册 Agent 总结本次 source / data_cleansing 套件 / data_analysis 套件的注册复盘，至少包含：
       - case_specific_learnings：只属于本套件的坑、口径、数据结构经验 → 写入套件 `LEARNINGS.md`
       - generalizable_skill_gaps：通用 SOP / schema / validation / output acceptance 缺口 → 写入 `docs/IMPROVEMENTS.md`
       - validation_pattern_updates：是否出现可复用的校验模式 → 候选写入 `docs/IMPROVEMENTS.md`
@@ -95,7 +99,7 @@
 
 manifest 有条目（status 由用户定）：
 
-- data_acquisition source：`acquisition.yaml` + `plan.md` + `ACCESS.md` + `LEARNINGS.md` 齐全；按 `execution.mode` 需要的 `RUNBOOK.md` / `PROMPT.md` / `SUBAGENT_TASK.md` 齐全；source contract 正向验收通过；负向测试能 STOP 或失败。
-- pipeline / scene：yaml + plan + CALIBERS + scripts + LEARNINGS 齐全；validation_contract 已声明；cleanup policy（如有）已验证；正向端到端复跑通过；负向测试能失败。
+- data_acquisition source：`acquisition.yaml` + `plan.md` + `LEARNINGS.md` 齐全；按 `execution.mode` 需要的 `RUNBOOK.md` / `PROMPT.md` / `SUBAGENT_TASK.md` 齐全；`access`、`runtime_requirements`、`data_acquisition_log.json` schema 明确；source contract 正向验收通过；缺支持可暂停反馈，硬失败负向测试能 STOP 或失败。只有可复用 source 才进入 manifest。
+- data_cleansing / data_analysis：yaml + plan + CALIBERS + scripts + LEARNINGS 齐全；validation_contract 已声明；cleanup policy（如有）已验证；正向端到端复跑通过；负向测试能失败。
 
 所有类型都必须通过 consistency_check。此后执行走 DATA_ACQUISITION_SOP 或 EXECUTION_SOP，不再读本文件。

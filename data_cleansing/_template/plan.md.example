@@ -1,4 +1,4 @@
-# {{pipeline_id}} 方案文档（plan.md · 清洗动线版 · 填写示例）
+# {{cleansing_id}} 方案文档（plan.md · 数据清洗套件版 · 填写示例）
 
 > 说明：下面用一个**中性示意业务**（"某周期业务报表"，纯属举例，请替换）演示 9 章怎么填。
 > 活文档铁则：没有本文件不开工；交互/执行/校验中的任何问题与修改立即回写对应章节。
@@ -21,7 +21,7 @@
 
 ## 第 4 章 输出定义
 - 产物：`cleaned_{{主表}}.csv`（schema: {{...}}）、`data_dictionary.md`。
-- 命名：`output/pipelines/{pipeline_id}_{数据截止日期YYYYMMDD}_{seq}/`。
+- 命名：`output/data_cleansing/{cleansing_id}_{数据截止日期YYYYMMDD}_{seq}/`。
 
 ## 第 5 章 校验方案
 - 中间校验：{{关键位置/合计一致性抽验}}（staged）。
@@ -50,7 +50,7 @@
 
 > 注册阶段整理。案例专属经验留在套件 `LEARNINGS.md`；通用规则缺口才进入 `docs/IMPROVEMENTS.md`，且需用户拍板。
 
-- case_specific_learnings → LEARNINGS.md：{{如源表隐藏行、标题行误判、特殊空值等仅本动线相关经验}}
+- case_specific_learnings → LEARNINGS.md：{{如源表隐藏行、标题行误判、特殊空值等仅本数据清洗套件相关经验}}
 - generalizable_skill_gaps → IMPROVEMENTS.md 候选：{{如 SOP/schema/validation 缺口}}
 - validation_pattern_updates：{{是否有可复用的逐格校验/位置映射校验模式}}
 - environment_dependency_updates：{{如需要 xlsx_read/formula_recalc/render 能力}}

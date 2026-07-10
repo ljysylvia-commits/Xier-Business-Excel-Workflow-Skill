@@ -17,12 +17,12 @@
 | 字段 | 允许值 | 说明 |
 |---|---|---|
 | `workbench_profile` | `workbuddy` / `codex` / `claude_code` / `enterprise_agent` / `unknown` | 当前显示在哪个工作台或 Agent 环境 |
-| `table_processing_need` | `csv_only` / `xlsx_read` / `xlsx_read_write` / `workbook_inspect` | 本次数据分析 pipeline 需要哪类表格文件处理能力 |
+| `table_processing_need` | `csv_only` / `xlsx_read` / `xlsx_read_write` / `workbook_inspect` | 本次数据获取、数据清洗或数据分析需要哪类表格文件处理能力 |
 
 判断方式：
 
 - `workbench_profile` 优先来自当前会话明确上下文、用户说明或 Agent 可见运行环境。
-- `table_processing_need` 来自用户请求、已命中的 pipeline / scene / acquisition source，或本次 raw data 的格式。
+- `table_processing_need` 来自用户请求、已命中的 data_acquisition source、data_cleansing 套件、data_analysis 套件，或本次 raw data 的格式。
 - 不扫描整台机器，不探测 SQL / API / browser / secret / external workbench。
 
 ## 3. 建议输出格式
@@ -77,7 +77,7 @@ readiness_gate:
 | API | 如果用户已有官方 API connector，data_acquisition 可以记录 connector handle、请求参数、raw response 和 schema 校验；未检测到时不推荐安装项 |
 | browser download | 如果用户已有浏览器自动化 / 工作台下载能力，data_acquisition 可以记录页面、筛选条件、导出动作和证据；未检测到时不推荐安装项 |
 | external workbench | 用户可用 Workbuddy / Qoderwork / 企业 Agent 做外部操作，data_acquisition 只记录输入、输出和人工确认范围；不推荐具体工作台 |
-| secret management | 只写安全边界：不保存账号、密码、cookie、token 到 Skill 或 repo；secret 管理由用户本地或企业环境负责 |
+| secret management | 只写安全边界：不保存账号、密码、cookie、token 或真实 `.env` 到 Skill / source / suite / repo；secret 管理由用户本地或企业环境负责，Skill 只记录外部引用名 |
 | Office / visual acceptance | 只进入 output acceptance 与 validation contract 的风险说明；不能声明完整视觉验收 |
 
 ## 6. 记录要求

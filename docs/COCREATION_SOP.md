@@ -1,6 +1,6 @@
 # COCREATION_SOP —— 共创标准流程（阶段一：workspace 自由共创）
 
-> 触发：上传/提问不匹配任何已注册 data_acquisition source、清洗 pipeline 或分析 scene，或用户明确提出新需求。
+> 触发：上传/提问不匹配任何已注册 data_acquisition source、data_cleansing 套件或 data_analysis 套件，或用户明确提出新需求。
 > **两阶段模型**：本文件覆盖 Phase 1~5（在 workspace 自由共创，只求跑通，不要求符合 Skill 目录/命名规范）；
 > 跑通后进入阶段二，按 `REGISTRATION_SOP.md` 一次性规范化迁入 Skill。
 > **两条铁则**：① 没有 plan.md 不开工（用 `docs/plan_template.md` 建骨架）；
@@ -22,8 +22,8 @@
    1) 想达成什么？ 2) 给谁看？ 3) 多久用一次？（一次性则最后不必注册）
 □ 先判断数据是否已经可达：
    - 没有上传文件，且数据在数仓 / BI / 网站 / API / 外部工作台 → 本次共创对象先定为 data_acquisition source
-   - 已有 raw Excel/CSV → 可共创清洗 pipeline
-   - 已有 clean CSV 或规整表 → 可共创分析 scene
+   - 已有 raw Excel/CSV → 可共创 data_cleansing 套件
+   - 已有 clean CSV 或规整表 → 可共创 data_analysis 套件
 □ 产出形态由你从意图推理（不预设 Excel）：
    快速回答→结论/文本表格；定期汇报→Excel/HTML；邮件送达→email；数据供后续加工→CSV/Excel
 □ 若做 Excel Dashboard/工作簿：请用户提供目标样例/模板（含格式）；若环境已有 spreadsheet/xlsx 能力，优先调用该能力完成读写与渲染
@@ -42,8 +42,8 @@
    - docs/VALIDATION_CONTRACT.md（机器可读验证状态契约）
    - docs/VALIDATION_PATTERNS.md（独立校验与关键数锚点）
 □ 定位源：
-   - data_acquisition 共创：确认 source_type、source_handle、权限边界、execution.mode、输出格式、expected_columns、validation checks 和 handoff
-   - 不写 SQL / API connector / 浏览器自动化；只记录 query_handle / connector handle / dashboard handle / runbook / prompt / subagent task
+   - data_acquisition 共创：确认 source_type、source_handle、access、runtime_requirements、execution.mode、execution_backend、raw_outputs[]、validation checks 和 handoff
+   - 不写 SQL / API connector / 浏览器自动化；只记录 query_handle / connector handle / dashboard handle / runbook / prompt / subagent task、外部 `.env` 引用名或 secret manager 引用名
 □ 读源：
    - 清洗共创：读原始 Excel 各 Sheet 表头与抽样行，识别结构（固定结构？还是可参数化的模式？）
    - 分析共创：优先读依赖动线的 references/data_dictionary.md；缺失或不全 → 直接读 CSV 表头+抽样推断，
@@ -79,10 +79,11 @@
    - 日志：结构化写 {output}.log
    - 可调用环境中的 spreadsheet/xlsx/html 等成熟工具，但必须把输入、输出、参数、关键计算与校验记录落盘
 □ 若是 data_acquisition source：
-   - 生成 `acquisition.yaml`、`ACCESS.md`、`LEARNINGS.md`
+   - 生成 `acquisition.yaml`、`LEARNINGS.md`
    - 按 `execution.mode` 生成 `RUNBOOK.md`、`PROMPT.md` 或 `SUBAGENT_TASK.md`
-   - `acquisition.yaml` 必须声明 `execution.*_usage`、`required_refs`、`ref_read_order`、`instruction_policy`、`permission`、`source_preflight`、`output`、`validation`、`evidence_contract`、`handoff`
+   - `acquisition.yaml` 必须声明 `execution_backend`、`execution.*_usage`、`required_refs`、`ref_read_order`、`instruction_policy`、`access`、`runtime_requirements`、`source_preflight`、`output.raw_outputs[]`、`validation`、`data_acquisition_log`、`handoff.raw_outputs[]`
    - 不生成通用自动取数工具；如需脚本，必须是用户批准、无密钥、可审计的 source 专属脚本
+   - 不保存真实 `.env`、密码、token、cookie、API key 或登录态
 □ 生成独立校验脚本（与主脚本同源异构）：
    - 不 import 主脚本任何函数；从数据源零知识重算全部结果；逐格对比（容差 0.001 / 相对 0.01%）
    - exit 0=通过 / 1=失败；差异明细写 {output}.validate.log；同时输出 validation_contract.json
@@ -94,11 +95,11 @@
 
 ```
 □ 跑通全链路：生成 → 校验
-□ data_acquisition source 的跑通标准：source_preflight 通过或明确降级 → raw data 可取得或手动导出 → expected_columns / row_count / date_range 校验通过 → data_acquisition log 字段完整 → handoff 决策明确
+□ data_acquisition source 的跑通标准：source_preflight 通过或明确降级 → raw outputs 可取得或手动导出 → 格式、结构类型、expected columns / fields、row/record count、date_range 校验通过 → `data_acquisition_log.json` 字段完整 → handoff 决策明确
 □ 校验不过 → 你自行迭代修复（读 validate 日志定位→改脚本→重跑），不把实现问题抛给用户
 □ 每次修复与结果回写 plan 第 8 章执行日志
 □ 通过后按 validation contract 做证据交付（验证状态 + 范围 + 未验证范围 + oracle 来源 + 假设项 + 关键数），并问：
-   "这个{数据获取 source / 动线 / 分析}以后还会再用吗？要注册成可复用的{source / 动线 / 场景}吗？"
+   "这个{数据获取 source / 数据清洗套件 / 数据分析套件}以后还会再用吗？要注册成可复用的{source / data_cleansing 套件 / data_analysis 套件}吗？"
    ├─ 是 → 进入阶段二：按 docs/REGISTRATION_SOP.md 执行
-   └─ 否 → 用完即弃（plan 留在 workspace 即可）
+   └─ 否 → 不注册为 source / 套件，只把本次过程证据留在 workspace
 ```

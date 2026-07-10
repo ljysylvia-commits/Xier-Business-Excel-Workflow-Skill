@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""pipeline_runner - standard runner for registered cleaning pipelines.
+"""data_cleansing_runner - standard runner for registered data cleansing suites.
 
-This is intentionally conservative. It only runs enabled cleaning pipelines and
-delegates business logic to the suite scripts declared in pipeline.yaml.
+This is intentionally conservative. It only runs enabled data cleansing suites
+and delegates business logic to the suite scripts declared in cleansing.yaml.
 """
 import argparse
 import fnmatch
@@ -28,7 +28,7 @@ def load_json(path, default):
 
 def load_yaml(path):
     if yaml is None:
-        raise SystemExit("PyYAML is required for pipeline_runner: pip install pyyaml")
+        raise SystemExit("PyYAML is required for data_cleansing_runner: pip install pyyaml")
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
@@ -53,38 +53,50 @@ def script_path(skill_root, suite_dir, rel):
 
 
 def load_manifest(skill_root):
-    path = skill_root / "pipelines" / "manifest.json"
-    data = load_json(path, {"pipelines": []})
-    return path, data.get("pipelines", [])
+    path = skill_root / "data_cleansing" / "manifest.json"
+    data = load_json(path, {"mode": "data_cleansing", "entries": []})
+    return path, data.get("entries", [])
 
 
 def suite_from_entry(skill_root, entry):
     yaml_rel = entry.get("yaml")
     if yaml_rel:
-        yaml_path = skill_root / "pipelines" / yaml_rel
+        yaml_path = skill_root / "data_cleansing" / yaml_rel
         return yaml_path.parent, yaml_path
-    suite_dir = skill_root / "pipelines" / entry["id"]
-    return suite_dir, suite_dir / "pipeline.yaml"
+    suite_dir = skill_root / "data_cleansing" / entry["id"]
+    return suite_dir, suite_dir / "cleansing.yaml"
 
 
-def filename_matches(path, hint):
-    if not hint:
+def filename_matches(path, hints):
+    if not hints:
         return True
-    return fnmatch.fnmatch(path.name, hint) or fnmatch.fnmatch(str(path), hint)
+    if isinstance(hints, str):
+        hints = [hints]
+    return any(fnmatch.fnmatch(path.name, hint) or fnmatch.fnmatch(str(path), hint) for hint in hints)
 
 
-def select_pipeline(skill_root, input_path, pipeline_id=None):
+def entry_hints(entry):
+    trigger = entry.get("trigger") or {}
+    return (
+        trigger.get("filename_hint")
+        or entry.get("filename_hint")
+        or trigger.get("pattern_hint")
+        or entry.get("pattern_hint")
+    )
+
+
+def select_cleansing(skill_root, input_path, cleansing_id=None):
     _, entries = load_manifest(skill_root)
     enabled = [entry for entry in entries if entry.get("status") == "enabled"]
-    if pipeline_id:
-        hits = [entry for entry in enabled if entry.get("id") == pipeline_id]
+    if cleansing_id:
+        hits = [entry for entry in enabled if entry.get("id") == cleansing_id]
     else:
-        hits = [entry for entry in enabled if filename_matches(input_path, entry.get("filename_hint") or entry.get("pattern_hint"))]
+        hits = [entry for entry in enabled if filename_matches(input_path, entry_hints(entry))]
     if not hits:
-        raise SystemExit("no enabled pipeline matched; use cocreation or pass --pipeline-id")
-    if len(hits) > 1 and not pipeline_id:
+        raise SystemExit("no enabled data_cleansing suite matched; use cocreation or pass --cleansing-id")
+    if len(hits) > 1 and not cleansing_id:
         ids = ", ".join(entry.get("id", "?") for entry in hits)
-        raise SystemExit(f"multiple pipelines matched ({ids}); pass --pipeline-id")
+        raise SystemExit(f"multiple data_cleansing suites matched ({ids}); pass --cleansing-id")
     entry = hits[0]
     suite_dir, yaml_path = suite_from_entry(skill_root, entry)
     return entry, suite_dir, yaml_path, load_yaml(yaml_path)
@@ -158,7 +170,7 @@ def run_drift_check(skill_root, suite_dir, input_path, allow_partial):
     raise SystemExit(proc.returncode)
 
 
-def create_run(skill_root, output_root, pipeline_id):
+def create_run(skill_root, output_root, cleansing_id):
     proc = run_cmd([
         sys.executable,
         str(output_manager(skill_root)),
@@ -166,9 +178,9 @@ def create_run(skill_root, output_root, pipeline_id):
         "--root",
         str(output_root),
         "--kind",
-        "pipelines",
+        "data_cleansing",
         "--id",
-        pipeline_id,
+        cleansing_id,
     ])
     return Path(proc.stdout.strip().splitlines()[-1])
 
@@ -184,7 +196,8 @@ def finalize_run(skill_root, run_dir, csvs, usage, data_date=None):
     return Path(proc.stdout.strip().splitlines()[-1])
 
 
-def run_steps(kind, steps, skill_root, suite_dir, input_path, run_dir):
+def run_steps(kind, steps, skill_root, suite_dir, input_path, run_dir, check=True):
+    first_failure = 0
     for index, item in enumerate(steps or [], 1):
         rel = item.get("script")
         if not rel:
@@ -192,7 +205,10 @@ def run_steps(kind, steps, skill_root, suite_dir, input_path, run_dir):
         args = substitute_args(item.get("args") or [], input_path, run_dir, suite_dir, skill_root)
         cmd = [sys.executable, str(script_path(skill_root, suite_dir, rel))] + args
         print(f"[{kind} {index}] {' '.join(cmd)}")
-        run_cmd(cmd, cwd=str(suite_dir))
+        proc = run_cmd(cmd, cwd=str(suite_dir), check=check)
+        if proc.returncode != 0 and first_failure == 0:
+            first_failure = proc.returncode
+    return first_failure
 
 
 def declared_csv_outputs(run_dir, data):
@@ -201,8 +217,12 @@ def declared_csv_outputs(run_dir, data):
         name = item.get("file")
         if name and name.endswith(".csv"):
             csvs.append(run_dir / name)
+    for name in (data.get("output") or {}).get("files") or []:
+        if isinstance(name, str) and name.endswith(".csv"):
+            csvs.append(run_dir / name)
     if not csvs:
         csvs = sorted(run_dir.glob("*.csv"))
+    csvs = sorted(set(csvs))
     existing = [path for path in csvs if path.exists()]
     if not existing:
         raise SystemExit("no CSV outputs found for finalize; declare outputs or pass a data_date strategy")
@@ -230,7 +250,7 @@ def validate_contract(skill_root, run_dir, data, usage):
     return load_json(info_path, {}) if info_path.exists() else {}
 
 
-def run_cleanup(skill_root, output_root, pipeline_id, run_dir, data):
+def run_cleanup(skill_root, output_root, cleansing_id, run_dir, data):
     lifecycle = data.get("run_lifecycle")
     policy = lifecycle or {"cleanup_policy": "ask"}
     cleanup_policy = policy.get("cleanup_policy", "ask")
@@ -247,9 +267,9 @@ def run_cleanup(skill_root, output_root, pipeline_id, run_dir, data):
         "--output-root",
         str(output_root),
         "--kind",
-        "pipelines",
+        "data_cleansing",
         "--suite-id",
-        pipeline_id,
+        cleansing_id,
         "--latest-run",
         str(run_dir),
         "--policy-json",
@@ -278,12 +298,12 @@ def command_list(args):
 def command_match(args):
     skill_root = Path(args.skill_root).resolve()
     input_path = Path(args.input).resolve()
-    entry, suite_dir, yaml_path, _ = select_pipeline(skill_root, input_path, args.pipeline_id)
+    entry, suite_dir, yaml_path, _ = select_cleansing(skill_root, input_path, args.cleansing_id)
     print(json.dumps({
         "id": entry.get("id"),
         "suite_dir": str(suite_dir),
         "yaml": str(yaml_path),
-        "filename_hint": entry.get("filename_hint"),
+        "filename_hint": entry_hints(entry),
     }, ensure_ascii=False, indent=2))
 
 
@@ -291,18 +311,18 @@ def command_run(args):
     skill_root = Path(args.skill_root).resolve()
     input_path = Path(args.input).resolve()
     output_root = Path(args.output_root).resolve()
-    usage = Path(args.usage).resolve() if args.usage else skill_root / "pipelines" / "usage.json"
+    usage = Path(args.usage).resolve() if args.usage else skill_root / "data_cleansing" / "usage.json"
 
-    entry, suite_dir, _, data = select_pipeline(skill_root, input_path, args.pipeline_id)
-    pipeline_id = data.get("pipeline_id") or entry.get("id") or suite_dir.name
+    entry, suite_dir, _, data = select_cleansing(skill_root, input_path, args.cleansing_id)
+    cleansing_id = data.get("cleansing_id") or entry.get("id") or suite_dir.name
     usage_data = load_json(usage, {})
-    if not args.yes_first_run and not usage_data.get(pipeline_id):
-        raise SystemExit(f"first run for {pipeline_id}; rerun with --yes-first-run after user confirmation")
+    if not args.yes_first_run and not usage_data.get(cleansing_id):
+        raise SystemExit(f"first run for {cleansing_id}; rerun with --yes-first-run after user confirmation")
 
     check_requires(data.get("requires") or [])
     run_drift_check(skill_root, suite_dir, input_path, args.allow_partial_drift)
 
-    run_dir = create_run(skill_root, output_root, pipeline_id)
+    run_dir = create_run(skill_root, output_root, cleansing_id)
     try:
         step(skill_root, run_dir, "preflight", "done")
         run_steps("transform", (data.get("transform") or {}).get("steps") or [], skill_root, suite_dir, input_path, run_dir)
@@ -310,10 +330,12 @@ def command_run(args):
         csvs = declared_csv_outputs(run_dir, data)
         final_dir = finalize_run(skill_root, run_dir, csvs, usage, data_date=args.data_date)
         run_dir = final_dir
-        run_steps("validation", (data.get("validation") or {}).get("layers") or [], skill_root, suite_dir, input_path, run_dir)
+        validation_exit = run_steps("validation", (data.get("validation") or {}).get("layers") or [], skill_root, suite_dir, input_path, run_dir, check=False)
         info = validate_contract(skill_root, run_dir, data, usage)
+        if validation_exit != 0:
+            raise SystemExit(validation_exit)
         if info.get("status") in {"verified", "partial_verified"}:
-            run_cleanup(skill_root, output_root, pipeline_id, run_dir, data)
+            run_cleanup(skill_root, output_root, cleansing_id, run_dir, data)
         print(str(run_dir))
     except BaseException:
         if run_dir.exists():
@@ -335,14 +357,14 @@ def main():
     p_match = sub.add_parser("match")
     p_match.add_argument("--skill-root", required=True)
     p_match.add_argument("--input", required=True)
-    p_match.add_argument("--pipeline-id")
+    p_match.add_argument("--cleansing-id")
     p_match.set_defaults(func=command_match)
 
     p_run = sub.add_parser("run")
     p_run.add_argument("--skill-root", required=True)
     p_run.add_argument("--input", required=True)
     p_run.add_argument("--output-root", required=True)
-    p_run.add_argument("--pipeline-id")
+    p_run.add_argument("--cleansing-id")
     p_run.add_argument("--usage")
     p_run.add_argument("--data-date")
     p_run.add_argument("--yes-first-run", action="store_true")

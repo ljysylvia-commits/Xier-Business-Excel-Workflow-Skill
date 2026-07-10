@@ -5,13 +5,15 @@
 - 想获取什么数据：
 - 给谁 / 哪个后续分析使用：
 - 数据源位置：
-- 产出 raw format：
+- 产出 raw outputs（格式 / 数量 / 用途）：
 
 ## 第 2 章 Source Contract
 
 - source_type：
 - source_handle：
-- 需要的权限：
+- access.required_confirmations：
+- runtime_requirements.required_support：
+- 外部 `.env` / 环境变量 / secret manager 引用名（只写引用，不写值）：
 - 输出字段：
 - 日期范围 / freshness：
 
@@ -21,13 +23,18 @@
 - instruction_ref / prompt_ref / subagent_task_ref：
 - prompt_usage / subagent_usage：
 - approved backend 或手动导出方式：
+- 缺权限 / 缺后端 / 缺安全运行支持时的补齐项与重跑 source_preflight 方式：
 
 ## 第 4 章 输出定义
 
-- raw_filename_pattern：
-- expected_columns：
-- raw_output_path 规则：
-- data_acquisition_log 字段：
+- raw_outputs[]：
+  - role：
+  - format（csv / xlsx / json / jsonl / html_table / zip / other）：
+  - path_pattern：
+  - structure_type（tabular / workbook / json_records / json_object / semi_structured / archive / other）：
+  - validation_profile：
+  - expected columns / fields：
+- data_acquisition_log.json 字段：
 
 ## 第 5 章 校验方案
 
@@ -39,16 +46,24 @@
 
 ## 第 6 章 Handoff
 
-- next_mode：
-- cleaning_pipeline_hint：
-- 如果没有清洗 pipeline，是否进入共创：
+- target_stage（data_cleansing / data_analysis）：
+- target_id（未知则 null）：
+- analysis_ready：
+- raw_outputs[].path / sha256 / format / structure_type / date_range：
+- data_cleansing_hint：
+- data_analysis_hint：
+- 如果没有目标套件，是否进入共创：
 
 ## 第 7 章 确认清单
 
 - [ ] 用户确认拥有访问 / 导出权限
 - [ ] 凭据只在用户运行时环境使用，不写入 Skill / repo
+- [ ] 真实 `.env` 不在 Skill / source / suite 目录中，且不会进入发布包
+- [ ] 外部 `.env` / 环境变量名 / secret manager 引用名只记录引用，不记录值
+- [ ] 用户补齐权限 / 后端 / secret / 外部 `.env` 支持后，确认这些运行条件可作为下一次复用条件
 - [ ] execution.mode 已确认
-- [ ] raw format 与 expected columns 已确认
+- [ ] raw_outputs[] 的格式、结构类型和 expected columns / fields 已确认
+- [ ] JSON raw output 是否允许直进 data_analysis 已按规则确认
 - [ ] handoff 路径已确认
 
 ## 第 8 章 执行日志

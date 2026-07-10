@@ -7,8 +7,7 @@ Act as the data acquisition executor for this single source.
 ## Required Reads
 
 1. `acquisition.yaml`
-2. `ACCESS.md`
-3. This file
+2. This file
 
 ## Task
 
@@ -16,16 +15,16 @@ Acquire or coordinate raw data export for the source contract in `acquisition.ya
 
 ## Deliverables
 
-- Raw data file path
-- Data acquisition log fields
-- Validation summary against expected columns, row count, and date range
+- Raw output file paths and hashes
+- `data_acquisition_log.json` fields
+- Validation summary against expected columns/fields, row/record count, date range, and structure type
 - Explicit unverified scope
+- Missing runtime support, if access, backend, external env, or secret references are not ready
 
 ## STOP Rules
 
-- Stop on missing permissions.
-- Stop on missing approved backend.
-- Stop on secret storage, captcha, login bypass, or policy bypass.
+- Pause and report missing support when access, approved backend, external env, or secret references are not ready.
+- Stop on credential storage inside the Skill, captcha bypass, login bypass, permission escalation, or policy bypass.
 - Stop if raw data does not match source contract.
 
 ## Handoff

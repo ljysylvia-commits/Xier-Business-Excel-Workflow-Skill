@@ -1,11 +1,13 @@
 # ============================================================
-# pipeline.yaml —— 清洗动线执行契约（脚手架 / 通用示例）
-# 新增一条清洗动线时，复制本文件为 pipelines/{your_pipeline_id}/pipeline.yaml 并按注释填写。
+# cleansing.yaml —— 数据清洗套件执行契约（脚手架 / 通用示例）
+# 新增一个数据清洗套件时，复制本文件为 data_cleansing/{your_cleansing_id}/cleansing.yaml 并按注释填写。
 # 铁则：本文件只放"执行契约"，不写清洗逻辑/字段映射/口径说明——逻辑在 scripts/，口径在 CALIBERS.md/plan.md。
 # 下面用中性占位（{{...}}）+ 两类模式示例，均为示意，请按实际业务替换。
 # ============================================================
 
-pipeline_id: {{your_pipeline_id}}        # 全小写下划线，如 order_daily / store_sales_monthly
+schema_version: 1
+mode: data_cleansing
+cleansing_id: {{your_cleansing_id}}      # 全小写下划线，如 order_daily / store_sales_monthly
 version: "1.0"
 generated_from: plan.md
 requires: [openpyxl]                     # 运行依赖；执行 preflight 逐项核验（如还需 pandas 则加上）
@@ -17,9 +19,9 @@ run_lifecycle:
   delete_scope: csv_only                 # csv_only | generated_outputs | full_run
   protect:
     pinned: true                         # pinned run 永不自动清理
-    referenced_by_analysis: true         # 被 analysis run 引用的旧 run 默认保护
+    referenced_by_data_analysis: true    # 被 data_analysis run 引用的旧 run 默认保护
     validation_reports: true             # 保留 validation report / contract
-    info_files: true                     # 保留 info.json / pipeline_info.yaml
+    info_files: true                     # 保留 info.json / data_cleansing_info.yaml
   tombstone: cleanup_tombstone.json      # 删除旧 CSV 后写入旧 run 目录的机器可读记录
 
 understand:
@@ -54,9 +56,8 @@ transform:
   steps:
     - script: scripts/clean.py
       args: ["{{--input 或位置参数}}", "{{--output 或位置参数}}"]   # 与脚本 argparse/位置参数完全一致
-    # 若为链式清洗（多步），后一步用 produces 引用前一步中间产物：
-    # - { script: scripts/step1.py, produces: mid, args: [...] }
-    # - { script: scripts/step2.py, args: ["--input {mid}", ...] }
+    # 若为多步清洗，每一步必须显式写入 run_dir 下的具体文件路径；
+    # 当前 runner 不支持 {mid} 这类通用中间产物 placeholder。
 
 validation:
   layers:
@@ -66,6 +67,10 @@ validation:
 validation_contract:
   produces: validation_contract.json      # 校验脚本必须输出；由 output_manager validate 读取后决定 verified/partial/failed
   schema: docs/VALIDATION_CONTRACT.md
+
+output:
+  naming: output/data_cleansing/{cleansing_id}_{data_date}_{seq}/
+  files: [cleaned_{{主表}}.csv, data_cleansing_info.yaml]
 
 outputs:                                 # 统一 CSV（长格式优先：一行一条 观测×指标×口径）
   - { file: cleaned_{{主表}}.csv, schema: "{{列1,列2,...,value}}" }

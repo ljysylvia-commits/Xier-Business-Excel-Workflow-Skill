@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""drift_check - deterministic structure drift checks for registered pipelines.
+"""drift_check - deterministic structure drift checks for registered data cleansing suites.
 
-The tool reads a pipeline suite directory, inspects its pipeline.yaml fingerprint,
+The tool reads a data cleansing suite directory, inspects its cleansing.yaml fingerprint,
 and checks whether a new input file still fits the registered structure.
 
 Exit codes:
@@ -131,7 +131,7 @@ def check_xlsx(path, fingerprint):
 def run_check(suite_dir, input_path):
     suite_dir = Path(suite_dir).resolve()
     input_path = Path(input_path).resolve()
-    yaml_path = suite_dir / "pipeline.yaml"
+    yaml_path = suite_dir / "cleansing.yaml"
     calibers_path = suite_dir / "CALIBERS.md"
     data = load_yaml(yaml_path)
     understand = data.get("understand") or {}
@@ -153,7 +153,7 @@ def run_check(suite_dir, input_path):
         return {
             "status": status,
             "mode": mode,
-            "pipeline_id": data.get("pipeline_id") or suite_dir.name,
+            "cleansing_id": data.get("cleansing_id") or suite_dir.name,
             "suite_dir": str(suite_dir),
             "input": str(input_path),
             "checks": checks,
@@ -175,7 +175,7 @@ def run_check(suite_dir, input_path):
     return {
         "status": status,
         "mode": mode,
-        "pipeline_id": data.get("pipeline_id") or suite_dir.name,
+        "cleansing_id": data.get("cleansing_id") or suite_dir.name,
         "suite_dir": str(suite_dir),
         "input": str(input_path),
         "checks": checks,
@@ -199,7 +199,7 @@ def main():
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print(f"drift_check: {result['status']} ({result['pipeline_id']})")
+        print(f"drift_check: {result['status']} ({result['cleansing_id']})")
         for item in result["errors"] + result["warnings"]:
             print(f"- {item}")
 

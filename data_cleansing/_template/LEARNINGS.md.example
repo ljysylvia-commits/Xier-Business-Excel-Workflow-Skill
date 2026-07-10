@@ -1,0 +1,24 @@
+# LEARNINGS —— {{cleansing_id}} 套件经验
+
+> 只记录本数据清洗套件专属经验。通用 Skill 规则缺口写入 `docs/IMPROVEMENTS.md` 候选，不能混在这里。
+
+## case_specific_learnings
+
+- {{源表结构、特殊空值、隐藏行列、误标标签、修正规则等本数据清洗套件专属经验}}
+
+## validation_notes
+
+- {{本数据清洗套件的逐格校验边界、无法验证范围、负向测试方式}}
+
+## environment_notes
+
+- {{本数据清洗套件依赖的 xlsx_read / formula_recalc / render / yaml 能力；缺失时的处理}}
+
+## template_candidate
+
+- 是否建议作为 template/example 候选：
+- 适用场景：
+- 输入要求：
+- 输出形态：
+- 业务特定假设：
+- 脱敏状态：
