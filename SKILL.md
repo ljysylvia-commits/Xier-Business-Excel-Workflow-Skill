@@ -1,18 +1,17 @@
 ---
 name: xier-business-data-workflow-skill
-description: |
-  Xier Business Data Workflow Skill：让 Agent 稳定复用同类业务数据的获取、处理和分析流程，
-  用可校验的数据资产支持业务问题回答和决策输出。
-  面向业务、运营、电商、市场、销售分析和企业内部 Agent 场景；帮助 Agent 在用户已有权限下取得或接收
-  Excel、CSV、JSON、JSONL、网页表格、BI 导出文件、业务系统下载文件、压缩包等业务数据，
-  清洗成可理解、可追溯、可校验的数据资产，再生成业务分析、看板、报告或协同产物。
-  首次遇到新数据源、新表结构或新分析问题时走共创；跑通后注册为可复用 data_acquisition source、
-  data_cleansing suite 或 data_analysis suite；之后同类任务稳定复用，并用 source contract / validation contract 说明结果边界。
-  触发场景：① 用户没有上传 raw data，但提出业务分析、报表、看板、复盘或决策支持需求，需要从数仓、BI、网站、API、外部工作台或手动导出取得数据；
-  ② 用户提供 Excel/CSV/JSON/JSONL/html_table/zip 等 raw data，需要清洗、规整、宽转长、字段标准化、结构校验或按已注册 suite 处理；
-  ③ 用户基于 raw data 或 clean data 提业务问题，需要趋势、同比、占比、渠道/商品/人群/区域对比、异常识别、活动复盘、Dashboard、HTML/Markdown 报告或协同产物；
-  ④ 用户要新增或修改数据获取 source、数据清洗 suite、数据分析 suite。
-  关键词：业务数据工作流、数据获取、取数、data_acquisition、data_cleansing、data_analysis、清洗、规整、宽转长、业务分析、运营分析、电商分析、决策支持、报表、看板、复盘、HTML 报告、source contract、validation contract、复用、共创、source、suite、manifest。
+description: >
+  Use this skill for recurring business data workflows / 业务数据工作流 that need reusable,
+  verifiable data acquisition (数据获取/取数), data cleansing (数据清洗), data analysis (数据分析),
+  and delivery contracts. It helps an Agent acquire or receive permitted business data such as
+  Excel, CSV, JSON/JSONL, web tables, BI exports, SQL/API/browser/workbench downloads; clean and
+  validate raw data into traceable assets; answer business questions with reports, dashboards,
+  analysis outputs, or collaboration artifacts; and register reusable data_acquisition sources,
+  data_cleansing suites, or data_analysis suites. Trigger when the user asks for operations,
+  ecommerce, marketing, sales, KPI review, campaign review, channel/product/customer/region
+  comparison, anomaly detection, 报表, 看板, 复盘, 决策支持, source contracts, validation contracts,
+  manifests, reusable data pipelines, or first-time co-creation of a new data source, table
+  structure, cleansing flow, or analysis scenario.
 ---
 
 # Xier Business Data Workflow Skill
